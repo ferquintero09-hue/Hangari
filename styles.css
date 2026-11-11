@@ -303,3 +303,18 @@ body.gallery-open{overflow:hidden}
 .garnish-option input:checked+.garnish-option-card{border:2px solid var(--gold-deep);padding:5px;background:#fffaf0;box-shadow:0 0 0 3px rgba(196,157,78,.18)}
 .garnish-option input:focus-visible+.garnish-option-card{outline:2px solid var(--gold-deep);outline-offset:3px}
 @media(max-width:520px){.garnish-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.garnish-option-card img{aspect-ratio:1.25/1}.garnish-option-card>span{font-size:12px}}
+
+/* ---------- Gestión de domiciliarios ---------- */
+.team-management{margin:28px 0 34px;padding:24px;background:rgba(255,253,249,.82);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm)}
+.team-heading h2{font:500 27px var(--serif);margin:0 0 6px}.team-heading p:last-child{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.team-create-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin:22px 0}
+.team-create-form label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:var(--ink)}
+.team-create-form input,.team-modal select{min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font:inherit;font-size:13px}
+.team-list-heading{display:flex;justify-content:space-between;align-items:center;padding-top:15px;border-top:1px solid var(--line);font-size:13px}
+.delivery-team-list{display:grid;gap:8px;margin-top:12px}
+.team-member{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.team-member>div{display:flex;flex-direction:column;gap:4px;min-width:0}.team-member strong{font-size:13px}.team-member>div span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.team-status{flex:none;padding:5px 9px;border-radius:99px;font-size:10px;font-weight:700}
+.team-status.active{background:#e2eee5;color:#2f5a3e}.team-status.pending{background:#f6ecd5;color:#7b6138}
+.team-modal{width:min(460px,100%)}
+@media(max-width:760px){.team-create-form{grid-template-columns:1fr}.team-create-form .btn{width:100%}.team-management{padding:18px}.team-member{align-items:flex-start;flex-direction:column}}
