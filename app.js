@@ -42,23 +42,104 @@
 
   async function loadProducts() {
     if (db) {
-      const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,active").eq("active",true).order("sort_order");
+      const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,image_gallery,active").eq("active",true).order("sort_order");
       if (!error && data) products=data;
       else { console.error(error); products=demoProducts; notify("No fue posible cargar el catálogo. Mostrando productos de demostración.",true); }
     } else products=demoProducts;
     renderProducts();
   }
+  function galleryImages(p) {
+    const primary = String(p.image_url || p.image || "").trim();
+    const extras = Array.isArray(p.image_gallery) ? p.image_gallery : [];
+    return [...new Set([primary, ...extras].map(x => String(x || "").trim()).filter(Boolean))];
+  }
+  function resolveProductImage(src) {
+    if (!src) return PRODUCT_IMG_PLACEHOLDER;
+    if (/^(https?:)?\\/\\//i.test(src) || src.startsWith("data:")) return src.replace(/'/g, "%27");
+    return encodeURI(PRODUCT_IMG_BASE + src.replace(/^[.\\/\\\\]+/, "")).replace(/'/g, "%27");
+  }
   function renderProducts(category="Todos") {
     const list=category==="Todos"?products:products.filter(p=>p.category===category);
     $("#product-grid").innerHTML=list.length?list.map(p=>`
       <article class="product-card">
-        <div class="product-photo" style="background-image:url('${esc(productImage(p))}'),url('${PRODUCT_IMG_PLACEHOLDER}')"><span class="product-category">${esc(p.category)}</span></div>
+        <button class="product-photo product-photo-button" type="button" data-gallery="${esc(p.id)}" aria-label="Ver fotografías de ${esc(p.name)}" style="background-image:url('${esc(productImage(p))}'),url('${PRODUCT_IMG_PLACEHOLDER}')">
+          <span class="product-category">${esc(p.category)}</span>
+          <span class="photo-hint">Ver fotografías <span aria-hidden="true">↗</span></span>
+        </button>
         <div class="product-info"><div><h3>${esc(p.name)}</h3><p>${esc(p.description||"Preparado para compartir.")}</p></div>
           <div class="product-buy"><div><strong>${money(p.price)}</strong><small>${esc(p.unit||"")}</small></div>
           <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
         </div>
       </article>`).join(""):'<p class="empty-state">Pronto tendremos productos en esta categoría.</p>';
     document.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>addToCart(b.dataset.add)));
+    document.querySelectorAll("[data-gallery]").forEach(b=>b.addEventListener("click",()=>openProductGallery(b.dataset.gallery)));
+  }
+  function ensureGalleryModal() {
+    if ($("#product-gallery-modal")) return;
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="gallery-backdrop hidden" id="product-gallery-modal" role="dialog" aria-modal="true" aria-label="Fotografías del producto">
+        <section class="gallery-dialog">
+          <button class="gallery-close" type="button" aria-label="Cerrar">×</button>
+          <p class="eyebrow">Conoce cada detalle</p>
+          <h2 class="gallery-title"></h2>
+          <div class="gallery-main-wrap">
+            <button class="gallery-arrow gallery-prev" type="button" aria-label="Fotografía anterior">‹</button>
+            <img class="gallery-main" alt="">
+            <button class="gallery-arrow gallery-next" type="button" aria-label="Fotografía siguiente">›</button>
+          </div>
+          <div class="gallery-thumbs" aria-label="Seleccionar fotografía"></div>
+          <p class="gallery-counter"></p>
+        </section>
+      </div>`);
+    const modal=$("#product-gallery-modal");
+    modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".gallery-close"))closeProductGallery();});
+    modal.querySelector(".gallery-prev").addEventListener("click",()=>changeGalleryImage(-1));
+    modal.querySelector(".gallery-next").addEventListener("click",()=>changeGalleryImage(1));
+    modal.querySelector(".gallery-thumbs").addEventListener("click",e=>{
+      const b=e.target.closest("[data-gallery-index]");
+      if(b)showGalleryImage(Number(b.dataset.galleryIndex));
+    });
+    document.addEventListener("keydown",e=>{
+      if(modal.classList.contains("hidden"))return;
+      if(e.key==="Escape")closeProductGallery();
+      if(e.key==="ArrowLeft")changeGalleryImage(-1);
+      if(e.key==="ArrowRight")changeGalleryImage(1);
+    });
+  }
+  let activeGalleryImages=[], activeGalleryIndex=0;
+  function openProductGallery(id) {
+    const p=products.find(x=>String(x.id)===String(id));
+    if(!p)return;
+    activeGalleryImages=galleryImages(p);
+    if(!activeGalleryImages.length)return;
+    activeGalleryIndex=0;
+    ensureGalleryModal();
+    $("#product-gallery-modal .gallery-title").textContent=p.name;
+    showGalleryImage(0);
+    $("#product-gallery-modal").classList.remove("hidden");
+    document.body.classList.add("gallery-open");
+  }
+  function showGalleryImage(index) {
+    if(!activeGalleryImages.length)return;
+    activeGalleryIndex=(index+activeGalleryImages.length)%activeGalleryImages.length;
+    const modal=$("#product-gallery-modal");
+    const src=resolveProductImage(activeGalleryImages[activeGalleryIndex]);
+    const img=modal.querySelector(".gallery-main");
+    img.src=src; img.alt=modal.querySelector(".gallery-title").textContent+" — fotografía "+(activeGalleryIndex+1);
+    modal.querySelector(".gallery-counter").textContent=(activeGalleryIndex+1)+" de "+activeGalleryImages.length;
+    modal.querySelector(".gallery-prev").disabled=activeGalleryImages.length<2;
+    modal.querySelector(".gallery-next").disabled=activeGalleryImages.length<2;
+    modal.querySelector(".gallery-thumbs").innerHTML=activeGalleryImages.map((path,i)=>`
+      <button type="button" class="gallery-thumb ${i===activeGalleryIndex?"active":""}" data-gallery-index="${i}" aria-label="Ver fotografía ${i+1}">
+        <img src="${esc(resolveProductImage(path))}" alt="">
+        <span>${i===0?"Preparado":"Empaque"}</span>
+      </button>`).join("");
+  }
+  function changeGalleryImage(delta){showGalleryImage(activeGalleryIndex+delta);}
+  function closeProductGallery(){
+    const modal=$("#product-gallery-modal");
+    if(modal)modal.classList.add("hidden");
+    document.body.classList.remove("gallery-open");
   }
   function addToCart(id) {
     const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
