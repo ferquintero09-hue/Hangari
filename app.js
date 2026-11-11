@@ -367,7 +367,11 @@ async function submitOrder(e) {
     const range=getStatsRange();
     const periodOrders=orders.filter(o=>{const d=dateInBogota(o.created_at);return d>=range.from&&d<=range.to;});
     const activeOrders=periodOrders.filter(o=>o.status!=="Cancelado");
-    const paidOrders=activeOrders.filter(o=>o.payment_status==="Pagado");
+    const paidOrders=orders.filter(o=>{
+      if(o.payment_status!=="Pagado")return false;
+      const paymentDate=dateInBogota(o.paid_at||o.created_at);
+      return paymentDate>=range.from&&paymentDate<=range.to;
+    });
     const pendingOrders=activeOrders.filter(o=>o.payment_status!=="Pagado");
     const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0);
     const collected=paidOrders.reduce((s,o)=>s+Number(o.total||0),0);
@@ -402,7 +406,7 @@ async function submitOrder(e) {
       <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Clasificación por unidades solicitadas</p></div><strong>${topProducts.length} productos</strong></div>
         ${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${d.quantity} unidades</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}
       </section>
-      <p class="statistics-footnote">Las ventas se calculan con pedidos no cancelados. El recaudo incluye pedidos marcados como Pagados. El filtro toma como referencia la fecha de creación del pedido.</p>`;
+      <p class="statistics-footnote">Las ventas se calculan con pedidos no cancelados. El recaudo incluye pedidos marcados como Pagados. Ventas, pendientes, domicilios y productos usan la fecha de creación del pedido. El recaudo se contabiliza por la fecha en que el administrador confirmó el pago.</p>`;
   }
   function slug(s){return String(s||"").toLowerCase().replaceAll(" ","-").replaceAll("ó","o").replaceAll("á","a");}
   function formatDate(d){return d?new Date(d+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}):"Por definir";}
