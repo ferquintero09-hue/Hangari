@@ -141,22 +141,60 @@
     if(modal)modal.classList.add("hidden");
     document.body.classList.remove("gallery-open");
   }
+  const dishRules = {
+    "Plato 1": { count: 1, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu"] },
+    "Plato 2": { count: 2, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu"] },
+    "Plato 3": { count: 2, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu","Lomo relleno","Pollo relleno"] }
+  };
+  const saladChoices=["Ensalada rusa","Ensalada colombiana"];
+  const garnishChoices=["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"];
+  function openDishConfigurator(p) {
+    const rule=dishRules[p.name]; if(!rule){notify("No encontramos la configuración de este plato.",true);return;}
+    let modal=$("#dish-config-modal");
+    if(!modal){
+      document.body.insertAdjacentHTML("beforeend",'<div class="modal-backdrop hidden" id="dish-config-modal"><section class="modal dish-config-modal" role="dialog" aria-modal="true" aria-labelledby="dish-config-title"><button class="icon-button modal-close" type="button" data-dish-close aria-label="Cerrar">×</button><p class="eyebrow">Personaliza tu plato</p><h2 id="dish-config-title"></h2><p class="dish-config-intro">Elige cómo quieres disfrutarlo. Todos los acompañamientos están incluidos.</p><form id="dish-config-form" class="form-grid"></form></section></div>');
+      modal=$("#dish-config-modal");
+      modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest("[data-dish-close]"))modal.classList.add("hidden");});
+    }
+    $("#dish-config-title").textContent=p.name+" · "+money(p.price);
+    let fields="";
+    for(let i=0;i<rule.count;i++){
+      fields+='<label class="span-2">Proteína '+(i+1)+'<select name="protein_'+i+'" required><option value="">Selecciona una opción</option>';
+      fields+=rule.proteins.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+      fields+='</select></label>';
+    }
+    fields+='<label class="span-2">Ensalada<select name="salad" required><option value="">Selecciona una ensalada</option>'+saladChoices.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("")+'</select></label>';
+    fields+='<label class="span-2">Guarnición<select name="garnish" required><option value="">Selecciona una guarnición</option>'+garnishChoices.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("")+'</select></label>';
+    fields+='<div class="checkout-summary span-2"><span>Precio del plato</span><strong>'+money(p.price)+'</strong></div><button class="btn btn-primary btn-full span-2" type="submit">Agregar al pedido</button>';
+    $("#dish-config-form").innerHTML=fields;
+    $("#dish-config-form").onsubmit=e=>{
+      e.preventDefault();const d=Object.fromEntries(new FormData(e.currentTarget).entries());
+      const options={proteinas:Array.from({length:rule.count},(_,i)=>d["protein_"+i]),ensalada:d.salad,guarnicion:d.garnish};
+      cart.push({key:"dish-"+Date.now()+"-"+Math.random().toString(36).slice(2,8),id:p.id,name:p.name,price:Number(p.price),quantity:1,options});
+      modal.classList.add("hidden");renderCart();notify(p.name+" se agregó con sus acompañamientos.");
+    };
+    modal.classList.remove("hidden");
+  }
   function addToCart(id) {
     const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
-    const found=cart.find(x=>String(x.id)===String(id));
-    if(found)found.quantity++; else cart.push({id:p.id,name:p.name,price:Number(p.price),quantity:1});
-    renderCart(); notify(`${p.name} se agregó a tu pedido.`);
+    if(dishRules[p.name]){openDishConfigurator(p);return;}
+    const found=cart.find(x=>String(x.id)===String(id)&&!x.options);
+    if(found)found.quantity++;else cart.push({key:"item-"+Date.now()+"-"+Math.random().toString(36).slice(2,8),id:p.id,name:p.name,price:Number(p.price),quantity:1});
+    renderCart();notify(p.name+" se agregó a tu pedido.");
   }
-  function changeQty(id,delta) {
-    const item=cart.find(x=>String(x.id)===String(id)); if(!item)return;
-    item.quantity+=delta; if(item.quantity<=0)cart=cart.filter(x=>String(x.id)!==String(id));
-    renderCart();
+  function changeQty(key,delta) {
+    const item=cart.find(x=>x.key===key);if(!item)return;
+    item.quantity+=delta;if(item.quantity<=0)cart=cart.filter(x=>x.key!==key);renderCart();
+  }
+  function optionsSummary(o) {
+    if(!o)return "";
+    return [].concat(o.proteinas||[],o.ensalada||[],o.guarnicion||[]).filter(Boolean).join(" · ");
   }
   function renderCart() {
     $("#cart-count").textContent=cart.reduce((s,x)=>s+x.quantity,0);
-    $("#cart-total").textContent=money(total()); $("#checkout-total").textContent=money(total());
+    $("#cart-total").textContent=money(total());$("#checkout-total").textContent=money(total());
     $("#checkout-open").disabled=!cart.length;
-    $("#cart-items").innerHTML=cart.length?cart.map(x=>`<article class="cart-item"><div class="cart-item-copy"><strong>${esc(x.name)}</strong><small>${money(x.price)} c/u</small><div class="quantity"><button data-qty="${esc(x.id)}" data-delta="-1">−</button><span>${x.quantity}</span><button data-qty="${esc(x.id)}" data-delta="1">+</button></div></div><strong>${money(x.price*x.quantity)}</strong></article>`).join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
+    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+' c/u</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+x.quantity+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(x.price*x.quantity)+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
     document.querySelectorAll("[data-qty]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.qty,Number(b.dataset.delta))));
   }
   function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
@@ -178,7 +216,8 @@ async function submitOrder(e) {
   const form = Object.fromEntries(new FormData(formElement).entries());
   const items = cart.map(x => ({
     product_id: x.id,
-    quantity: x.quantity
+    quantity: x.quantity,
+    options: x.options || {}
   }));
 
   const btn = $("#submit-order");
@@ -241,7 +280,7 @@ async function submitOrder(e) {
   async function loadOrders() {
     if(!db||!profile)return;
     $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
-    let q=db.from("orders").select("*,order_items(id,quantity,unit_price,product_name)").order("created_at",{ascending:false});
+    let q=db.from("orders").select("*,order_items(id,quantity,unit_price,product_name,options)").order("created_at",{ascending:false});
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
@@ -259,7 +298,7 @@ async function submitOrder(e) {
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
   }
   function orderCard(o) {
-    const items=(o.order_items||[]).map(i=>`${i.quantity} × ${esc(i.product_name)}`).join("<br>");
+    const items=(o.order_items||[]).map(i=>`${i.quantity} × ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
     const admin=profile.role==="admin";
     let actions="";
     if(admin) {
