@@ -380,10 +380,10 @@ async function submitOrder(e) {
     const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
     const values=Object.fromEntries(new FormData(form).entries());
     button.disabled=true;button.textContent="Creando perfil…";
-    const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"create",full_name:values.full_name,email:values.email}});
-    button.disabled=false;button.textContent="Enviar invitación";
+    const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"create",full_name:values.full_name,email:values.email,password:values.password}});
+    button.disabled=false;button.textContent="Crear domiciliario";
     if(error||data?.error){notify(data?.error||"No se pudo crear el perfil.",true);return;}
-    form.reset();notify(data.message||"Domiciliario registrado.");await loadDeliveryTeam();
+    form.reset();notify(data.message||"Cuenta de domiciliario creada.");await loadDeliveryTeam();
   }
 
   // UI events
