@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f0e1">
+  <meta name="description" content="Hangari: platos navideños para compartir. Elige tu pedido, cuéntanos dónde y cuándo, y nosotros lo llevamos.">
+  <title>Hangari | Navidad para compartir</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <a class="skip-link" href="#catalogo">Ir al menú</a>
+  <div class="garland" aria-hidden="true"><span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span></div>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="Hangari inicio">
+      <img class="brand-logo" src="img/logo/logo.png" alt="" hidden><span class="brand-mark">H</span>
+      <span><strong>Hangari</strong><small>Navidad para compartir</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Principal">
+      <a href="#catalogo">Menú navideño</a>
+      <a href="#como-funciona">Cómo pedir</a>
+    </nav>
+    <div class="header-actions">
+      <button class="btn btn-quiet" id="staff-login-open">Acceso equipo</button>
+      <button class="cart-button" id="cart-open" aria-label="Abrir carrito">Mi pedido <span id="cart-count">0</span></button>
+    </div>
+  </header>
+
+  <main id="storefront">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Una Navidad hecha para compartir</p>
+        <h1>Los sabores que<br><em>reúnen a la familia.</em></h1>
+        <p class="hero-description">Preparamos esos platos que hacen especial la mesa navideña. Tú eliges, nosotros nos encargamos de llevarlos.</p>
+        <a class="btn btn-primary" href="#catalogo">Explorar menú <span>→</span></a>
+        <div class="hero-note"><span class="sparkle">✳</span> Hecho con cariño, servido para compartir.</div>
+      </div>
+      <div class="hero-art">
+        <div class="hero-image" role="img" aria-label="Mesa navideña con comida tradicional"></div>
+        <div class="round-stamp"><span>HECHO</span><strong>con<br>amor</strong><span>EN Hangari</span></div>
+        <div class="hero-sprig" aria-hidden="true">✧</div>
+      </div>
+    </section>
+
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <div class="marquee-group"><span>Proteínas</span><span>✦</span><span>Ensaladas</span><span>✦</span><span>Platos</span><span>✦</span><span>Novenitas</span><span>✦</span><span>Sabor de hogar</span><span>✦</span></div>
+        <div class="marquee-group"><span>Proteínas</span><span>✦</span><span>Ensaladas</span><span>✦</span><span>Platos</span><span>✦</span><span>Novenitas</span><span>✦</span><span>Sabor de hogar</span><span>✦</span></div>
+      </div>
+    </div>
+
+    <div class="intro-band">
+      <section class="intro section-wrap" id="como-funciona">
+        <p class="eyebrow">La magia está en la mesa</p>
+        <h2>Una celebración deliciosa,<br><em>sin complicaciones.</em></h2>
+        <div class="steps">
+          <article><span class="step-number">01</span><div class="step-icon">♨</div><h3>Elige tus favoritos</h3><p>Explora nuestro menú y arma tu pedido a tu gusto.</p></article>
+          <article><span class="step-number">02</span><div class="step-icon">♡</div><h3>Cuéntanos dónde</h3><p>Déjanos tus datos y la fecha en la que quieres recibirlo.</p></article>
+          <article><span class="step-number">03</span><div class="step-icon">✧</div><h3>Nosotros lo llevamos</h3><p>Confirmamos tu pedido y coordinamos la entrega.</p></article>
+        </div>
+      </section>
+    </div>
+
+    <section class="catalog-section" id="catalogo">
+      <div class="section-wrap">
+        <div class="section-heading">
+          <div><p class="eyebrow">Nuestro menú</p><h2>Tradición servida<br><em>con mucho cariño.</em></h2></div>
+          <p>Encuentra ese sabor que no puede faltar en tu celebración.</p>
+        </div>
+        <div class="category-tabs" id="category-tabs">
+          <button class="category-tab active" data-category="Todos">Todo el menú</button>
+          <button class="category-tab" data-category="Proteínas">Proteínas</button>
+          <button class="category-tab" data-category="Ensaladas">Ensaladas</button>
+          <button class="category-tab" data-category="Platos">Platos</button>
+          <button class="category-tab" data-category="Novenitas">Novenitas</button>
+        </div>
+        <div class="product-grid" id="product-grid">
+          <div class="loading">Preparando nuestro menú…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing-banner">
+      <div class="closing-ornament" aria-hidden="true">✧</div>
+      <p class="eyebrow">Que nunca falte un motivo para reunirnos</p>
+      <h2>Esta Navidad,<br><em>el mejor ingrediente es estar juntos.</em></h2>
+      <button class="btn btn-light" id="banner-cart">Arma tu pedido <span>→</span></button>
+    </section>
+  </main>
+
+  <section id="staff-app" class="staff-app hidden">
+    <header class="staff-header">
+      <a class="brand" href="#" id="back-to-store"><img class="brand-logo" src="img/logo/logo.png" alt="" hidden><span class="brand-mark">H</span><span><strong>Hangari</strong><small>Gestión de pedidos</small></span></a>
+      <div class="staff-user"><span id="staff-role-label">Equipo</span><button class="btn btn-quiet" id="logout-button">Cerrar sesión</button></div>
+    </header>
+    <div class="staff-content">
+      <div class="staff-title"><div><p class="eyebrow">Centro de operaciones</p><h1 id="dashboard-title">Pedidos</h1></div><button class="btn btn-outline" id="refresh-orders">↻ Actualizar</button></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="orders-toolbar"><div id="orders-tabs" class="category-tabs"><button class="category-tab active" data-filter="Todos">Todos</button><button class="category-tab" data-filter="Pendiente">Pendientes</button><button class="category-tab" data-filter="Confirmado">Confirmados</button><button class="category-tab" data-filter="En preparación">En preparación</button><button class="category-tab" data-filter="Asignado">Asignados</button><button class="category-tab" data-filter="En camino">En camino</button><button class="category-tab" data-filter="Entregado">Entregados</button></div></div>
+      <div id="orders-list" class="orders-list"><div class="loading">Cargando pedidos…</div></div>
+    </div>
+  </section>
+
+  <div class="overlay hidden" id="cart-overlay"></div>
+  <aside class="drawer hidden" id="cart-drawer" aria-label="Carrito de compras">
+    <div class="drawer-head"><div><p class="eyebrow">Tu selección</p><h2>Mi pedido</h2></div><button class="icon-button" id="cart-close" aria-label="Cerrar">×</button></div>
+    <div id="cart-items" class="cart-items"><p class="empty-state">Tu carrito está esperando algo delicioso.</p></div>
+    <div class="cart-footer">
+      <div class="total-line"><span>Total estimado</span><strong id="cart-total">$0</strong></div>
+      <button class="btn btn-primary btn-full" id="checkout-open" disabled>Continuar con mis datos</button>
+      <p class="tiny-note">El pedido quedará pendiente de confirmación por Hangari.</p>
+    </div>
+  </aside>
+
+  <div class="modal-backdrop hidden" id="checkout-modal">
+    <section class="modal checkout-modal" role="dialog" aria-modal="true" aria-label="Datos de entrega">
+      <button class="icon-button modal-close" data-close="checkout-modal" aria-label="Cerrar">×</button>
+      <p class="eyebrow">Un último paso</p><h2>¿Dónde y cuándo<br><em>compartimos?</em></h2>
+      <form id="checkout-form" class="form-grid">
+        <label>Nombre completo<input name="customer_name" required maxlength="120" placeholder="Tu nombre"></label>
+        <label>Celular<input name="phone" required maxlength="30" inputmode="tel" placeholder="Ej. 300 123 4567"></label>
+        <label class="span-2">Dirección de entrega<input name="address" required maxlength="250" placeholder="Dirección, barrio y referencias"></label>
+        <label>Fecha de entrega<input name="delivery_date" type="date" required></label>
+        <label>Vendedor <span class="optional">(opcional)</span><input name="seller" maxlength="120" placeholder="¿Quién te atendió?"></label>
+        <label class="span-2">Medio de pago
+          <select name="payment_method" required><option value="">Selecciona una opción</option><option value="Transferencia">Transferencia</option><option value="Efectivo">Efectivo</option><option value="Datáfono">Datáfono</option><option value="Otro">Otro / por acordar</option></select>
+        </label>
+        <div class="checkout-summary span-2"><span>Total de tu pedido</span><strong id="checkout-total">$0</strong></div>
+        <button class="btn btn-primary btn-full span-2" type="submit" id="submit-order">Registrar pedido</button>
+        <p class="tiny-note span-2">Al registrar, autorizas a Hangari a contactarte para confirmar los detalles de tu pedido.</p>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="login-modal">
+    <section class="modal login-modal" role="dialog" aria-modal="true" aria-label="Acceso del equipo">
+      <button class="icon-button modal-close" data-close="login-modal" aria-label="Cerrar">×</button>
+      <p class="eyebrow">Acceso privado</p><h2>Hola de nuevo.</h2><p class="muted">Ingresa con tu cuenta del equipo Hangari.</p>
+      <form id="login-form" class="form-grid">
+        <label class="span-2">Correo electrónico<input name="email" type="email" autocomplete="username" required placeholder="equipo@Hangari.com"></label>
+        <label class="span-2">Contraseña<input name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"></label>
+        <button class="btn btn-primary btn-full span-2" type="submit">Ingresar al panel</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast hidden" id="toast" role="status"></div>
+  <footer class="site-footer"><span>Hangari</span><p>Que esta Navidad nos encuentre alrededor de una buena mesa.</p><small>© <span id="year"></span> Hangari. Todos los derechos reservados.</small></footer>
+
+  <script>
+    /* Encabezado compacto al hacer scroll (solo visual) */
+    (function(){var h=document.querySelector('.site-header');if(!h)return;
+    function f(){h.classList.toggle('is-scrolled',window.scrollY>12)}
+    f();window.addEventListener('scroll',f,{passive:true});})();
+    /* Logo: si img/logo/logo.png existe reemplaza la "H"; si no, queda la "H" */
+    document.querySelectorAll('.brand-logo').forEach(function(img){
+      function ok(){img.hidden=false;var m=img.nextElementSibling;if(m)m.hidden=true;}
+      if(img.complete&&img.naturalWidth)ok();else img.addEventListener('load',ok);
+    });
+  </script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

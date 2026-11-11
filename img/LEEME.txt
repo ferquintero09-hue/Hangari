@@ -1,0 +1,19 @@
+IMAGENES DE HANGARY - reglas de nombres
+=======================================
+Usa SIEMPRE minusculas, sin espacios, sin tildes ni ñ, con guiones: pernil-de-cerdo.jpg
+Usa la extension exacta (.jpg, no .JPG ni .jpeg). En Netlify/Vercel (Linux) "Pernil.JPG" y "pernil.jpg"
+son archivos distintos: funciona en tu PC pero falla en produccion.
+
+1) PORTADA (hero)      -> img/hero/principal.jpg
+   Tamano: 1200 x 1500 px (vertical 4:5), maximo 300 KB. Para cambiarla, reemplaza el archivo con ese mismo nombre.
+
+2) LOGO                -> img/logo/logo.png   (PNG con fondo transparente)
+   Tamano: unos 400 px de alto, maximo 100 KB. Se muestra a 44 px de alto (38 px en celular).
+   Si el archivo no existe, se muestra la "H" dorada.
+
+3) PRODUCTOS (menu)    -> img/productos/<categoria>/<nombre-del-producto>.jpg
+   Categorias: proteinas, ensaladas, platos, novenitas
+   Tamano: 900 x 600 px (horizontal 3:2), maximo 150 KB cada una.
+   La ruta que va en la columna image_url de Supabase es la que sigue a "img/productos/":
+   ej.  proteinas/pernil-de-cerdo-horneado.jpg
+   Si falta la foto, se muestra img/productos/_placeholder.svg (no la borres).

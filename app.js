@@ -1,0 +1,236 @@
+/* Hangary — storefront + staff dashboard */
+(() => {
+  const cfg = window.HANGARY_CONFIG || {};
+  const configured = cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY &&
+    !cfg.SUPABASE_URL.includes("TU-PROYECTO") && !cfg.SUPABASE_ANON_KEY.includes("TU_SUPABASE");
+  const db = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
+
+  const $ = (s) => document.querySelector(s);
+  const money = (n) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(Number(n || 0));
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  // ===== IMÁGENES DEL MENÚ =====
+  // Las fotos viven en la carpeta img/productos/. En Supabase (columna image_url) y en los productos demo
+  // solo se escribe la ruta dentro de esa carpeta, ej.: "proteinas/pernil-de-cerdo-horneado.jpg".
+  // Una URL completa (https://...) también funciona. Si la foto no existe se ve el placeholder.
+  const PRODUCT_IMG_BASE = "img/productos/";
+  const PRODUCT_IMG_PLACEHOLDER = PRODUCT_IMG_BASE + "_placeholder.svg";
+  const demoProducts = [
+    {id:"demo-1",name:"Pernil de cerdo horneado",description:"Jugoso, dorado y preparado con el sabor de la tradición.",category:"Proteínas",price:185000,unit:"por pieza",image:"proteinas/pernil-de-cerdo-horneado.jpg"},
+    {id:"demo-2",name:"Pechuga rellena",description:"Una receta especial para compartir en familia.",category:"Proteínas",price:95000,unit:"por unidad",image:"proteinas/pechuga-rellena.jpg"},
+    {id:"demo-3",name:"Ensalada navideña",description:"Fresca, cremosa y con el toque dulce de la casa.",category:"Ensaladas",price:48000,unit:"por porción familiar",image:"ensaladas/ensalada-navidena.jpg"},
+    {id:"demo-4",name:"Ensalada de papa",description:"Ese acompañamiento clásico que nunca puede faltar.",category:"Ensaladas",price:42000,unit:"por porción familiar",image:"ensaladas/ensalada-de-papa.jpg"},
+    {id:"demo-5",name:"Cena navideña Hangary",description:"Una combinación especial para llevar a la mesa.",category:"Platos",price:72000,unit:"por persona",image:"platos/cena-navidena-hangary.jpg"},
+    {id:"demo-6",name:"Novenita para compartir",description:"Una selección deliciosa para acompañar tus encuentros.",category:"Novenitas",price:65000,unit:"por kit",image:"novenitas/novenita-para-compartir.jpg"}
+  ];
+
+  let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
+  let toastTimer;
+
+  function notify(message, error=false) {
+    const t=$("#toast"); t.textContent=message; t.classList.remove("hidden"); t.classList.toggle("error",error);
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add("hidden"),3800);
+  }
+  function openModal(id){ $("#"+id).classList.remove("hidden"); }
+  function closeModal(id){ $("#"+id).classList.add("hidden"); }
+  function total(){ return cart.reduce((s,x)=>s+x.price*x.quantity,0); }
+  function productImage(p){
+    const src = String(p.image_url || p.image || "").trim();
+    if (!src) return PRODUCT_IMG_PLACEHOLDER;
+    if (/^(https?:)?\/\//i.test(src) || src.startsWith("data:")) return src.replace(/'/g, "%27");
+    return encodeURI(PRODUCT_IMG_BASE + src.replace(/^[.\/\\]+/, "")).replace(/'/g, "%27");
+  }
+
+  async function loadProducts() {
+    if (db) {
+      const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,active").eq("active",true).order("sort_order");
+      if (!error && data) products=data;
+      else { console.error(error); products=demoProducts; notify("No fue posible cargar el catálogo. Mostrando productos de demostración.",true); }
+    } else products=demoProducts;
+    renderProducts();
+  }
+  function renderProducts(category="Todos") {
+    const list=category==="Todos"?products:products.filter(p=>p.category===category);
+    $("#product-grid").innerHTML=list.length?list.map(p=>`
+      <article class="product-card">
+        <div class="product-photo" style="background-image:url('${esc(productImage(p))}'),url('${PRODUCT_IMG_PLACEHOLDER}')"><span class="product-category">${esc(p.category)}</span></div>
+        <div class="product-info"><div><h3>${esc(p.name)}</h3><p>${esc(p.description||"Preparado para compartir.")}</p></div>
+          <div class="product-buy"><div><strong>${money(p.price)}</strong><small>${esc(p.unit||"")}</small></div>
+          <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
+        </div>
+      </article>`).join(""):'<p class="empty-state">Pronto tendremos productos en esta categoría.</p>';
+    document.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>addToCart(b.dataset.add)));
+  }
+  function addToCart(id) {
+    const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
+    const found=cart.find(x=>String(x.id)===String(id));
+    if(found)found.quantity++; else cart.push({id:p.id,name:p.name,price:Number(p.price),quantity:1});
+    renderCart(); notify(`${p.name} se agregó a tu pedido.`);
+  }
+  function changeQty(id,delta) {
+    const item=cart.find(x=>String(x.id)===String(id)); if(!item)return;
+    item.quantity+=delta; if(item.quantity<=0)cart=cart.filter(x=>String(x.id)!==String(id));
+    renderCart();
+  }
+  function renderCart() {
+    $("#cart-count").textContent=cart.reduce((s,x)=>s+x.quantity,0);
+    $("#cart-total").textContent=money(total()); $("#checkout-total").textContent=money(total());
+    $("#checkout-open").disabled=!cart.length;
+    $("#cart-items").innerHTML=cart.length?cart.map(x=>`<article class="cart-item"><div class="cart-item-copy"><strong>${esc(x.name)}</strong><small>${money(x.price)} c/u</small><div class="quantity"><button data-qty="${esc(x.id)}" data-delta="-1">−</button><span>${x.quantity}</span><button data-qty="${esc(x.id)}" data-delta="1">+</button></div></div><strong>${money(x.price*x.quantity)}</strong></article>`).join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
+    document.querySelectorAll("[data-qty]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.qty,Number(b.dataset.delta))));
+  }
+  function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
+  function hideCart(){ $("#cart-overlay").classList.add("hidden"); $("#cart-drawer").classList.add("hidden"); }
+
+
+async function submitOrder(e) {
+  e.preventDefault();
+
+  const formElement = e.currentTarget;
+
+  if (!db) {
+    notify("Configura Supabase para registrar pedidos reales. El catálogo está en modo demostración.", true);
+    return;
+  }
+
+  if (!cart.length) return;
+
+  const form = Object.fromEntries(new FormData(formElement).entries());
+  const items = cart.map(x => ({
+    product_id: x.id,
+    quantity: x.quantity
+  }));
+
+  const btn = $("#submit-order");
+  btn.disabled = true;
+  btn.textContent = "Registrando…";
+
+  try {
+    const { data, error } = await db.rpc("create_public_order", {
+      p_customer_name: form.customer_name,
+      p_phone: form.phone,
+      p_address: form.address,
+      p_delivery_date: form.delivery_date,
+      p_seller: form.seller || null,
+      p_payment_method: form.payment_method,
+      p_items: items
+    });
+
+    if (error) throw error;
+
+    cart = [];
+    renderCart();
+
+    formElement.reset();
+
+    closeModal("checkout-modal");
+    hideCart();
+
+    notify(`¡Pedido registrado! Tu código es ${data}. Hangary se comunicará contigo para confirmarlo.`);
+
+  } catch (err) {
+    console.error(err);
+    notify(err.message || "No se pudo registrar el pedido.", true);
+
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Registrar pedido";
+  }
+}
+
+
+  async function login(e) {
+    e.preventDefault(); if(!db){notify("Primero configura las credenciales de Supabase.",true);return;}
+    const f=Object.fromEntries(new FormData(e.currentTarget).entries());
+    const {data,error}=await db.auth.signInWithPassword({email:f.email,password:f.password});
+    if(error){notify("No fue posible iniciar sesión. Verifica tus datos.",true);return;}
+    await loadStaff();
+  }
+  async function loadStaff() {
+    const {data:{user}}=await db.auth.getUser(); currentUser=user;
+    if(!user){showStore();return;}
+    const {data:prof,error}=await db.from("profiles").select("id,full_name,role").eq("id",user.id).single();
+    if(error||!prof){await db.auth.signOut();notify("Tu usuario no tiene un rol habilitado en Hangary.",true);return;}
+    profile=prof; $("#storefront").classList.add("hidden"); $("#staff-app").classList.remove("hidden");
+    $("#staff-role-label").textContent=prof.role==="admin"?"Administrador":"Domiciliario";
+    $("#dashboard-title").textContent=prof.role==="admin"?"Gestión de pedidos":"Mis entregas";
+    $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
+    await loadOrders();
+  }
+  function showStore(){ $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");currentUser=null;profile=null; }
+  async function loadOrders() {
+    if(!db||!profile)return;
+    $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
+    let q=db.from("orders").select("*,order_items(id,quantity,unit_price,product_name)").order("created_at",{ascending:false});
+    if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
+    const {data,error}=await q;
+    if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
+    orders=data||[]; renderDashboard();
+  }
+  function renderDashboard() {
+    const pending=orders.filter(o=>o.status==="Pendiente").length;
+    const active=orders.filter(o=>!["Entregado","Cancelado"].includes(o.status)).length;
+    const delivered=orders.filter(o=>o.status==="Entregado").length;
+    $("#stats-grid").innerHTML=`<div class="stat-card"><small>${profile.role==="admin"?"Pedidos pendientes":"Pedidos por gestionar"}</small><strong>${profile.role==="admin"?pending:active}</strong></div><div class="stat-card"><small>En proceso</small><strong>${orders.filter(o=>["Confirmado","En preparación","Asignado","En camino"].includes(o.status)).length}</strong></div><div class="stat-card"><small>Entregados</small><strong>${delivered}</strong></div>`;
+    const shown=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
+    $("#orders-list").innerHTML=shown.length?shown.map(orderCard).join(""):'<div class="empty-panel"><span>✧</span><h3>No hay pedidos en esta vista</h3><p>Cuando se registren pedidos, aparecerán aquí.</p></div>';
+    document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
+    document.querySelectorAll("[data-assign]").forEach(b=>b.addEventListener("click",()=>assignDelivery(b.dataset.id)));
+    document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
+  }
+  function orderCard(o) {
+    const items=(o.order_items||[]).map(i=>`${i.quantity} × ${esc(i.product_name)}`).join("<br>");
+    const admin=profile.role==="admin";
+    let actions="";
+    if(admin) {
+      actions=`<div class="order-actions">
+        ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
+        ${o.payment_status!=="Pagado"?`<button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">Marcar pago recibido</button>`:""}
+        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign="${o.id}">Asignar domiciliario</button>`:""}
+        ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
+        ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
+      </div>`;
+    } else {
+      actions=`<div class="order-actions">${o.status==="Asignado"?`<button class="btn btn-primary btn-small" data-order-action="En camino" data-id="${o.id}">Iniciar entrega</button>`:""}${o.status==="En camino"?`<button class="btn btn-primary btn-small" data-order-action="Entregado" data-id="${o.id}">Marcar entregado</button>`:""}</div>`;
+    }
+    return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span></div><strong>${money(o.total)}</strong></div>
+      <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${esc(o.payment_method)}</strong><span>${o.payment_status==="Pagado"?"Recibido":"Pendiente"} · ${esc(o.seller||"Sin vendedor")}</span></div></div>
+      <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>${actions}</article>`;
+  }
+  function slug(s){return String(s||"").toLowerCase().replaceAll(" ","-").replaceAll("ó","o").replaceAll("á","a");}
+  function formatDate(d){return d?new Date(d+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}):"Por definir";}
+  async function updateOrder(id,status) {
+    const {error}=await db.from("orders").update({status}).eq("id",id);
+    if(error){notify(error.message,true);return;} notify("Estado del pedido actualizado.");await loadOrders();
+  }
+  async function confirmPayment(id) {
+    if(!confirm("¿Confirmas que el pago de este pedido fue recibido?"))return;
+    const {error}=await db.from("orders").update({payment_status:"Pagado"}).eq("id",id);
+    if(error){notify(error.message,true);return;}notify("Pago marcado como recibido.");await loadOrders();
+  }
+  async function assignDelivery(id) {
+    const {data,error}=await db.from("profiles").select("id,full_name").eq("role","delivery").order("full_name");
+    if(error||!data?.length){notify("No hay domiciliarios registrados.",true);return;}
+    const choice=prompt("Escribe el número del domiciliario:\n"+data.map((x,i)=>`${i+1}. ${x.full_name||x.id}`).join("\n"));
+    const person=data[Number(choice)-1];if(!person)return;
+    const {error:upError}=await db.from("orders").update({delivery_user_id:person.id,status:"Asignado"}).eq("id",id);
+    if(upError){notify(upError.message,true);return;}notify(`Pedido asignado a ${person.full_name||"domiciliario"}.`);await loadOrders();
+  }
+
+  // UI events
+  $("#category-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(!b)return;document.querySelectorAll("[data-category]").forEach(x=>x.classList.toggle("active",x===b));renderProducts(b.dataset.category);});
+  $("#cart-open").addEventListener("click",showCart);$("#banner-cart").addEventListener("click",showCart);
+  $("#cart-close").addEventListener("click",hideCart);$("#cart-overlay").addEventListener("click",hideCart);
+  $("#checkout-open").addEventListener("click",()=>{hideCart();openModal("checkout-modal");$("#checkout-total").textContent=money(total());});
+  $("#checkout-form").addEventListener("submit",submitOrder);
+  $("#staff-login-open").addEventListener("click",()=>openModal("login-modal"));$("#login-form").addEventListener("submit",login);
+  document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
+  document.querySelectorAll(".modal-backdrop").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden");}));
+  $("#logout-button").addEventListener("click",async()=>{if(db)await db.auth.signOut();showStore();notify("Sesión cerrada.");});
+  $("#back-to-store").addEventListener("click",e=>{e.preventDefault();showStore();});
+  $("#refresh-orders").addEventListener("click",loadOrders);
+  $("#orders-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(!b)return;orderFilter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderDashboard();});
+  $("#year").textContent=new Date().getFullYear();
+  const minDate=new Date();minDate.setMinutes(minDate.getMinutes()-minDate.getTimezoneOffset());$("#checkout-form [name=delivery_date]").min=minDate.toISOString().slice(0,10);
+  renderCart();loadProducts();
+  if(db)db.auth.getSession().then(({data})=>{if(data.session)loadStaff();});
+})();
