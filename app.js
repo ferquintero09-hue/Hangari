@@ -24,6 +24,7 @@
   ];
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
+  let statsPeriod = "all";
   let toastTimer;
 
   function notify(message, error=false) {
@@ -205,6 +206,15 @@
   }
   function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
   function hideCart(){ $("#cart-overlay").classList.add("hidden"); $("#cart-drawer").classList.add("hidden"); }
+  function showOrderSuccess(orderCode) {
+    $("#order-success-code").textContent = String(orderCode || "Registrado");
+    $("#order-success").classList.remove("hidden");
+    document.body.classList.add("success-open");
+  }
+  function closeOrderSuccess() {
+    $("#order-success").classList.add("hidden");
+    document.body.classList.remove("success-open");
+  }
 
 
 async function submitOrder(e) {
@@ -250,8 +260,7 @@ async function submitOrder(e) {
 
     closeModal("checkout-modal");
     hideCart();
-
-    notify(`¡Pedido registrado! Tu código es ${data}. Hangary se comunicará contigo para confirmarlo.`);
+    showOrderSuccess(data);
 
   } catch (err) {
     console.error(err);
@@ -289,6 +298,9 @@ async function submitOrder(e) {
     $("#dashboard-title").textContent=prof.role==="admin"?"Gestión de pedidos":"Mis entregas";
     $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
     $("#team-management").classList.toggle("hidden",prof.role!=="admin");
+    $("#admin-navigation").classList.toggle("hidden",prof.role!=="admin");
+    $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");
+    document.querySelectorAll("[data-staff-view]").forEach(b=>b.classList.toggle("active",b.dataset.staffView==="orders"));
     if(prof.role==="admin")await loadDeliveryTeam();
     await loadOrders();
   }
@@ -300,7 +312,7 @@ async function submitOrder(e) {
   async function loadOrders() {
     if(!db||!profile)return;
     $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
-    let q=db.from("orders").select("*,order_items(id,quantity,unit_price,product_name,options)").order("created_at",{ascending:false});
+    let q=db.from("orders").select("*,delivery_profile:profiles!orders_delivery_user_id_fkey(full_name),order_items(id,quantity,unit_price,product_name,options)").order("created_at",{ascending:false});
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
@@ -311,6 +323,7 @@ async function submitOrder(e) {
     const active=orders.filter(o=>!["Entregado","Cancelado"].includes(o.status)).length;
     const delivered=orders.filter(o=>o.status==="Entregado").length;
     $("#stats-grid").innerHTML=`<div class="stat-card"><small>${profile.role==="admin"?"Pedidos pendientes":"Pedidos por gestionar"}</small><strong>${profile.role==="admin"?pending:active}</strong></div><div class="stat-card"><small>En proceso</small><strong>${orders.filter(o=>["Confirmado","En preparación","Asignado","En camino"].includes(o.status)).length}</strong></div><div class="stat-card"><small>Entregados</small><strong>${delivered}</strong></div>`;
+    if(profile.role==="admin"&&!$("#statistics-view").classList.contains("hidden"))renderStatistics();
     const shown=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
     $("#orders-list").innerHTML=shown.length?shown.map(orderCard).join(""):'<div class="empty-panel"><span>✧</span><h3>No hay pedidos en esta vista</h3><p>Cuando se registren pedidos, aparecerán aquí.</p></div>';
     document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
@@ -320,11 +333,12 @@ async function submitOrder(e) {
   function orderCard(o) {
     const items=(o.order_items||[]).map(i=>`${i.quantity} × ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
     const admin=profile.role==="admin";
+    const deliveryName=o.delivery_profile?.full_name || (o.delivery_user_id ? "Nombre no disponible" : "");
     let actions="";
     if(admin) {
       actions=`<div class="order-actions">
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
-        ${o.payment_status!=="Pagado"?`<button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">Marcar pago recibido</button>`:""}
+        <button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>
         ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">Asignar domiciliario</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
@@ -332,9 +346,63 @@ async function submitOrder(e) {
     } else {
       actions=`<div class="order-actions">${o.status==="Asignado"?`<button class="btn btn-primary btn-small" data-order-action="En camino" data-id="${o.id}">Iniciar entrega</button>`:""}${o.status==="En camino"?`<button class="btn btn-primary btn-small" data-order-action="Entregado" data-id="${o.id}">Marcar entregado</button>`:""}</div>`;
     }
+    const paymentDetail=o.payment_status==="Pagado"?`Pagado · ${esc(o.confirmed_payment_method||"Medio por clasificar")}`:"Pendiente de recaudo";
     return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span></div><strong>${money(o.total)}</strong></div>
-      <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${esc(o.payment_method)}</strong><span>${o.payment_status==="Pagado"?"Recibido":"Pendiente"} · ${esc(o.seller||"Sin vendedor")}</span></div></div>
+      <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · ${esc(o.seller||"Sin vendedor")}</span></div></div>
+      ${deliveryName?`<div class="assigned-delivery"><span class="assigned-delivery-icon">♧</span><div><small>DOMICILIARIO ASIGNADO</small><strong>${esc(deliveryName)}</strong></div></div>`:""}
       <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>${actions}</article>`;
+  }
+  function dateInBogota(value){if(!value)return "";return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));}
+  function localToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
+  function getStatsRange(){
+    const today=localToday();
+    if(statsPeriod==="today")return {from:today,to:today};
+    if(statsPeriod==="7days"){const d=new Date(today+"T12:00:00-05:00");d.setDate(d.getDate()-6);return {from:dateInBogota(d),to:today};}
+    if(statsPeriod==="month")return {from:today.slice(0,7)+"-01",to:today};
+    if(statsPeriod==="custom")return {from:$("#stats-from").value||"0000-01-01",to:$("#stats-to").value||"9999-12-31"};
+    return {from:"0000-01-01",to:"9999-12-31"};
+  }
+  function renderStatistics(){
+    if(profile?.role!=="admin")return;
+    const range=getStatsRange();
+    const periodOrders=orders.filter(o=>{const d=dateInBogota(o.created_at);return d>=range.from&&d<=range.to;});
+    const activeOrders=periodOrders.filter(o=>o.status!=="Cancelado");
+    const paidOrders=activeOrders.filter(o=>o.payment_status==="Pagado");
+    const pendingOrders=activeOrders.filter(o=>o.payment_status!=="Pagado");
+    const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0);
+    const collected=paidOrders.reduce((s,o)=>s+Number(o.total||0),0);
+    const pendingAmount=pendingOrders.reduce((s,o)=>s+Number(o.total||0),0);
+    const average=activeOrders.length?sales/activeOrders.length:0;
+    const methods=["Transferencia","Efectivo","Datáfono","Otro"];
+    const paymentTotals=methods.map(method=>({method,total:paidOrders.filter(o=>o.confirmed_payment_method===method).reduce((s,o)=>s+Number(o.total||0),0)}));
+    const unclassified=paidOrders.filter(o=>!o.confirmed_payment_method).reduce((s,o)=>s+Number(o.total||0),0);
+    const paymentRows=paymentTotals.concat([{method:"Sin clasificar",total:unclassified}]).filter(x=>x.total>0);
+    const assigned=activeOrders.filter(o=>o.delivery_user_id),unassigned=activeOrders.filter(o=>!o.delivery_user_id);
+    const driverMap={};assigned.forEach(o=>{const n=o.delivery_profile?.full_name||"Domiciliario sin nombre";driverMap[n]=(driverMap[n]||0)+1;});
+    const drivers=Object.entries(driverMap).sort((x,y)=>y[1]-x[1]),maxPayment=Math.max(1,...paymentRows.map(x=>x.total)),maxDriver=Math.max(1,...drivers.map(x=>x[1]));
+    const productMap={};activeOrders.forEach(o=>(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto";if(!productMap[n])productMap[n]={quantity:0,total:0};productMap[n].quantity+=Number(i.quantity||0);productMap[n].total+=Number(i.quantity||0)*Number(i.unit_price||0);}));
+    const topProducts=Object.entries(productMap).sort((x,y)=>y[1].quantity-x[1].quantity).slice(0,6);
+    $("#statistics-content").innerHTML=`
+      <div class="statistics-kpis">
+        <article class="statistics-kpi featured"><span>Ventas registradas</span><strong>${money(sales)}</strong><small>${activeOrders.length} pedidos no cancelados</small></article>
+        <article class="statistics-kpi"><span>Dinero recaudado</span><strong>${money(collected)}</strong><small>${paidOrders.length} pagos confirmados</small></article>
+        <article class="statistics-kpi"><span>Por recaudar</span><strong>${money(pendingAmount)}</strong><small>${pendingOrders.length} pedidos pendientes de pago</small></article>
+        <article class="statistics-kpi"><span>Promedio por pedido</span><strong>${money(average)}</strong><small>Ticket promedio del periodo</small></article>
+      </div>
+      <div class="statistics-two-columns">
+        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Recaudo por medio de pago</h3><p>Solo pagos marcados como recibidos</p></div><strong>${money(collected)}</strong></div>
+          ${paymentRows.length?paymentRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.method)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxPayment*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay pagos confirmados en este periodo.</p>'}
+          ${unclassified?'<p class="statistics-note">Hay pagos anteriores sin medio confirmado. Puedes clasificarlos desde Pedidos.</p>':""}
+        </section>
+        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Control de domicilios</h3><p>Pedidos del periodo seleccionado</p></div><strong>${assigned.length+unassigned.length}</strong></div>
+          <div class="delivery-summary"><div><span>Asignados</span><strong>${assigned.length}</strong></div><div><span>Sin asignar</span><strong>${unassigned.length}</strong></div></div>
+          ${drivers.length?'<h4>Pedidos por domiciliario</h4>'+drivers.map(([name,count])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(name)}</span><strong>${count} pedidos</strong></div><div class="stat-bar-track delivery-track"><span style="width:${Math.max(3,count/maxDriver*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Todavía no hay domicilios asignados.</p>'}
+        </section>
+      </div>
+      <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Clasificación por unidades solicitadas</p></div><strong>${topProducts.length} productos</strong></div>
+        ${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${d.quantity} unidades</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}
+      </section>
+      <p class="statistics-footnote">Las ventas se calculan con pedidos no cancelados. El recaudo incluye pedidos marcados como Pagados. El filtro toma como referencia la fecha de creación del pedido.</p>`;
   }
   function slug(s){return String(s||"").toLowerCase().replaceAll(" ","-").replaceAll("ó","o").replaceAll("á","a");}
   function formatDate(d){return d?new Date(d+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}):"Por definir";}
@@ -343,9 +411,30 @@ async function submitOrder(e) {
     if(error){notify(error.message,true);return;} notify("Estado del pedido actualizado.");await loadOrders();
   }
   async function confirmPayment(id) {
-    if(!confirm("¿Confirmas que el pago de este pedido fue recibido?"))return;
-    const {error}=await db.from("orders").update({payment_status:"Pagado"}).eq("id",id);
-    if(error){notify(error.message,true);return;}notify("Pago marcado como recibido.");await loadOrders();
+    const order=orders.find(o=>String(o.id)===String(id));if(!order)return;
+    const modal=document.createElement("div");modal.className="modal-backdrop payment-backdrop";
+    modal.innerHTML=`<section class="modal payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+      <button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Control de recaudo</p>
+      <h2 id="payment-modal-title">${order.payment_status==="Pagado"?"Actualizar pago":"Confirmar pago recibido"}</h2>
+      <p class="muted">Pedido ${esc(order.order_number)} · Total ${money(order.total)}</p>
+      <form class="form-grid"><label class="span-2">¿Por cuál medio recibiste el dinero?
+        <select name="confirmed_payment_method" required><option value="">Selecciona el medio confirmado</option>
+        <option value="Transferencia" ${order.confirmed_payment_method==="Transferencia"?"selected":""}>Transferencia</option>
+        <option value="Efectivo" ${order.confirmed_payment_method==="Efectivo"?"selected":""}>Efectivo</option>
+        <option value="Datáfono" ${order.confirmed_payment_method==="Datáfono"?"selected":""}>Datáfono</option>
+        <option value="Otro" ${order.confirmed_payment_method==="Otro"?"selected":""}>Otro</option></select></label>
+        <button class="btn btn-primary btn-full span-2" type="submit">${order.payment_status==="Pagado"?"Guardar medio de pago":"Confirmar dinero recibido"}</button></form></section>`;
+    document.body.appendChild(modal);const close=()=>modal.remove();
+    modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close"))close();});
+    modal.querySelector("form").addEventListener("submit",async e=>{
+      e.preventDefault();const method=new FormData(e.currentTarget).get("confirmed_payment_method");if(!method)return;
+      const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;button.textContent="Guardando…";
+      const updates={confirmed_payment_method:method};
+      if(order.payment_status!=="Pagado"){updates.payment_status="Pagado";updates.paid_at=new Date().toISOString();updates.paid_by=currentUser.id;}
+      const {error}=await db.from("orders").update(updates).eq("id",id);
+      if(error){notify(error.message,true);button.disabled=false;button.textContent="Intentar nuevamente";return;}
+      close();notify("Pago registrado: "+method+".");await loadOrders();
+    });
   }
   async function assignDelivery(id) {
     const {data,error}=await db.from("profiles").select("id,full_name").eq("role","delivery").order("full_name");
@@ -396,6 +485,8 @@ async function submitOrder(e) {
   $("#cart-close").addEventListener("click",hideCart);$("#cart-overlay").addEventListener("click",hideCart);
   $("#checkout-open").addEventListener("click",()=>{hideCart();openModal("checkout-modal");$("#checkout-total").textContent=money(total());});
   $("#checkout-form").addEventListener("submit",submitOrder);
+  $("#success-back-to-store").addEventListener("click",closeOrderSuccess);
+  $("#order-success").addEventListener("click",e=>{if(e.target===$("#order-success"))closeOrderSuccess();});
   $("#staff-login-open").addEventListener("click",()=>openModal("login-modal"));$("#login-form").addEventListener("submit",login);$("#delivery-team-form").addEventListener("submit",createDeliveryProfile);$("#refresh-team").addEventListener("click",loadDeliveryTeam);
   document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
   document.querySelectorAll(".modal-backdrop").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden");}));
@@ -403,6 +494,9 @@ async function submitOrder(e) {
   $("#back-to-store").addEventListener("click",e=>{e.preventDefault();showStore();});
   $("#refresh-orders").addEventListener("click",loadOrders);
   $("#orders-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(!b)return;orderFilter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderDashboard();});
+  $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view==="statistics");if(view==="statistics")renderStatistics();});
+  $("#stats-period").addEventListener("change",e=>{statsPeriod=e.target.value;$("#stats-custom-dates").classList.toggle("hidden",statsPeriod!=="custom");renderStatistics();});
+  ["stats-from","stats-to"].forEach(id=>$("#"+id).addEventListener("change",renderStatistics));
   $("#year").textContent=new Date().getFullYear();
   const minDate=new Date();minDate.setMinutes(minDate.getMinutes()-minDate.getTimezoneOffset());$("#checkout-form [name=delivery_date]").min=minDate.toISOString().slice(0,10);
   renderCart();loadProducts();
