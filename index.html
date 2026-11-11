@@ -100,6 +100,16 @@
     <div class="staff-content">
       <div class="staff-title"><div><p class="eyebrow">Centro de operaciones</p><h1 id="dashboard-title">Pedidos</h1></div><button class="btn btn-outline" id="refresh-orders">↻ Actualizar</button></div>
       <div class="stats-grid" id="stats-grid"></div>
+      <section id="team-management" class="team-management hidden">
+        <div class="team-heading"><div><p class="eyebrow">Administración</p><h2>Gestión del equipo</h2><p>Registra domiciliarios y envíales una invitación segura para activar su acceso.</p></div></div>
+        <form id="delivery-team-form" class="team-create-form">
+          <label>Nombre completo<input name="full_name" required minlength="3" maxlength="120" placeholder="Nombre del domiciliario"></label>
+          <label>Correo electrónico<input name="email" type="email" required maxlength="254" placeholder="correo@ejemplo.com"></label>
+          <button class="btn btn-primary" type="submit">Enviar invitación</button>
+        </form>
+        <div class="team-list-heading"><strong>Domiciliarios registrados</strong><button class="btn btn-outline btn-small" type="button" id="refresh-team" onclick="document.getElementById('delivery-team-list').dispatchEvent(new Event('refresh-team'))">Actualizar lista</button></div>
+        <div id="delivery-team-list" class="delivery-team-list"><p class="empty-state">Cargando equipo…</p></div>
+      </section>
       <div class="orders-toolbar"><div id="orders-tabs" class="category-tabs"><button class="category-tab active" data-filter="Todos">Todos</button><button class="category-tab" data-filter="Pendiente">Pendientes</button><button class="category-tab" data-filter="Confirmado">Confirmados</button><button class="category-tab" data-filter="En preparación">En preparación</button><button class="category-tab" data-filter="Asignado">Asignados</button><button class="category-tab" data-filter="En camino">En camino</button><button class="category-tab" data-filter="Entregado">Entregados</button></div></div>
       <div id="orders-list" class="orders-list"><div class="loading">Cargando pedidos…</div></div>
     </div>
