@@ -9,7 +9,7 @@
   --grad-gold:linear-gradient(135deg,#efd899 0%,#c9a24f 48%,#a47c35 100%);
   --grad-text:linear-gradient(120deg,#8a6628,#d1ab5b 50%,#8a6628);
   --shadow:0 24px 60px rgba(96,70,28,.14);--shadow-sm:0 8px 24px rgba(96,70,28,.09);
-  --img-hero:url("img/hero/principal.jpg"); /* PORTADA: reemplaza el archivo con este mismo nombre */
+  --img-hero:url("img/portada/portada.jpg");
   --radius:20px;--serif:"Playfair Display",Georgia,serif;
 }
 *{box-sizing:border-box}
