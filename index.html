@@ -195,5 +195,24 @@
   </script>
   <script src="config.js"></script>
   <script src="app.js?v=20261111-whatsapp1"></script>
+
+  <script>
+    (function(){
+      var widget=document.getElementById("whatsapp-widget");
+      var toggle=document.getElementById("whatsapp-toggle");
+      var popover=document.getElementById("whatsapp-popover");
+      var close=document.getElementById("whatsapp-close");
+      if(!widget||!toggle||!popover)return;
+      function setOpen(open){
+        popover.classList.toggle("hidden",!open);
+        popover.setAttribute("aria-hidden",String(!open));
+        toggle.setAttribute("aria-expanded",String(open));
+      }
+      toggle.addEventListener("click",function(){setOpen(popover.classList.contains("hidden"));});
+      if(close)close.addEventListener("click",function(){setOpen(false);toggle.focus();});
+      document.addEventListener("click",function(event){if(!widget.contains(event.target))setOpen(false);});
+      document.addEventListener("keydown",function(event){if(event.key==="Escape")setOpen(false);});
+    })();
+  </script>
 </body>
 </html>
