@@ -429,9 +429,7 @@ async function submitOrder(e) {
     modal.querySelector("form").addEventListener("submit",async e=>{
       e.preventDefault();const method=new FormData(e.currentTarget).get("confirmed_payment_method");if(!method)return;
       const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;button.textContent="Guardando…";
-      const updates={confirmed_payment_method:method};
-      if(order.payment_status!=="Pagado"){updates.payment_status="Pagado";updates.paid_at=new Date().toISOString();updates.paid_by=currentUser.id;}
-      const {error}=await db.from("orders").update(updates).eq("id",id);
+      const {error}=await db.rpc("admin_confirm_order_payment",{p_order_id:id,p_method:method});
       if(error){notify(error.message,true);button.disabled=false;button.textContent="Intentar nuevamente";return;}
       close();notify("Pago registrado: "+method+".");await loadOrders();
     });
