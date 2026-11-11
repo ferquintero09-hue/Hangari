@@ -382,7 +382,11 @@ async function submitOrder(e) {
     button.disabled=true;button.textContent="Creando perfil…";
     const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"create",full_name:values.full_name,email:values.email,password:values.password}});
     button.disabled=false;button.textContent="Crear domiciliario";
-    if(error||data?.error){notify(data?.error||"No se pudo crear el perfil.",true);return;}
+    let errorMessage=data?.error;
+    if(error){
+      try{const payload=await error.context?.json();errorMessage=payload?.error||error.message;}catch{errorMessage=error.message;}
+    }
+    if(error||data?.error){notify(errorMessage||"No se pudo crear el perfil.",true);return;}
     form.reset();notify(data.message||"Cuenta de domiciliario creada.");await loadDeliveryTeam();
   }
 
