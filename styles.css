@@ -279,3 +279,13 @@ button{cursor:pointer}
 .gallery-counter{text-align:center;margin:8px 0 0;color:var(--muted);font-size:11px}
 body.gallery-open{overflow:hidden}
 @media(max-width:520px){.gallery-backdrop{padding:10px}.gallery-dialog{padding:28px 14px 18px;border-radius:18px}.gallery-main-wrap{min-height:210px}.gallery-main{max-height:48vh}.gallery-thumb{width:96px}.gallery-thumb img{height:58px}.photo-hint{opacity:1;transform:none}}
+
+
+/* ---------- Configuración de platos y opciones del pedido ---------- */
+.dish-config-modal{width:min(520px,100%)}
+.dish-config-intro{color:var(--muted);font-size:13px;line-height:1.6;margin:-4px 0 20px}
+.dish-config-modal .form-grid{gap:14px}
+.dish-config-modal label{font-size:13px;font-weight:700;color:var(--ink);display:flex;flex-direction:column;gap:7px}
+.dish-config-modal select{width:100%;min-height:46px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font:inherit;font-size:14px}
+.cart-options{display:block;margin-top:6px;color:var(--muted);line-height:1.55}
+.order-item-options{display:inline-block;margin:2px 0 5px 22px;color:var(--muted);line-height:1.55}
