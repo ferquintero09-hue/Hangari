@@ -55,8 +55,8 @@
   }
   function resolveProductImage(src) {
     if (!src) return PRODUCT_IMG_PLACEHOLDER;
-    if (/^(https?:)?\\/\\//i.test(src) || src.startsWith("data:")) return src.replace(/'/g, "%27");
-    return encodeURI(PRODUCT_IMG_BASE + src.replace(/^[.\\/\\\\]+/, "")).replace(/'/g, "%27");
+    if (/^(https?:)?\/\//i.test(src) || src.startsWith("data:")) return src.replace(/'/g, "%27");
+    return encodeURI(PRODUCT_IMG_BASE + src.replace(/^[.\/\\]+/, "")).replace(/'/g, "%27");
   }
   function renderProducts(category="Todos") {
     const list=category==="Todos"?products:products.filter(p=>p.category===category);
