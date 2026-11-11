@@ -118,6 +118,11 @@
     </header>
     <div class="staff-content">
       <div class="staff-title"><div><p class="eyebrow">Centro de operaciones</p><h1 id="dashboard-title">Pedidos</h1></div><button class="btn btn-outline" id="refresh-orders">↻ Actualizar</button></div>
+      <nav class="staff-navigation hidden" id="admin-navigation" aria-label="Secciones administrativas">
+        <button class="staff-nav-button active" type="button" data-staff-view="orders"><span>▤</span> Pedidos</button>
+        <button class="staff-nav-button" type="button" data-staff-view="statistics"><span>▥</span> Estadísticas</button>
+      </nav>
+      <section id="orders-view">
       <div class="stats-grid" id="stats-grid"></div>
       <section id="team-management" class="team-management hidden">
         <div class="team-heading"><div><p class="eyebrow">Administración</p><h2>Gestión del equipo</h2><p>Crea las credenciales de acceso de cada domiciliario. Entrégalas directamente a la persona.</p></div></div>
@@ -133,6 +138,17 @@
       </section>
       <div class="orders-toolbar"><div id="orders-tabs" class="category-tabs"><button class="category-tab active" data-filter="Todos">Todos</button><button class="category-tab" data-filter="Pendiente">Pendientes</button><button class="category-tab" data-filter="Confirmado">Confirmados</button><button class="category-tab" data-filter="En preparación">En preparación</button><button class="category-tab" data-filter="Asignado">Asignados</button><button class="category-tab" data-filter="En camino">En camino</button><button class="category-tab" data-filter="Entregado">Entregados</button></div></div>
       <div id="orders-list" class="orders-list"><div class="loading">Cargando pedidos…</div></div>
+      </section>
+      <section id="statistics-view" class="statistics-view hidden" aria-label="Estadísticas y ventas">
+        <div class="statistics-heading">
+          <div><p class="eyebrow">Indicadores del negocio</p><h2>Ventas y recaudos</h2><p>Consulta el comportamiento de Hangary y el movimiento de los domicilios.</p></div>
+          <div class="statistics-filters">
+            <label>Periodo<select id="stats-period"><option value="all">Todo el periodo</option><option value="today">Hoy</option><option value="7days">Últimos 7 días</option><option value="month">Este mes</option><option value="custom">Fechas personalizadas</option></select></label>
+            <div class="stats-custom-dates hidden" id="stats-custom-dates"><label>Desde<input type="date" id="stats-from"></label><label>Hasta<input type="date" id="stats-to"></label></div>
+          </div>
+        </div>
+        <div id="statistics-content"><div class="loading">Calculando estadísticas…</div></div>
+      </section>
     </div>
   </section>
 
@@ -167,6 +183,15 @@
     </section>
   </div>
 
+  <div class="modal-backdrop hidden success-backdrop" id="order-success" role="dialog" aria-modal="true" aria-labelledby="order-success-title">
+    <section class="success-card">
+      <div class="success-logo-wrap"><span class="success-orbit"></span><img src="img/logo-color.png" alt="Logo de Hangary" class="success-logo"><span class="success-check">✓</span></div>
+      <p class="eyebrow">Una Navidad para compartir</p><h2 id="order-success-title">¡Tu pedido está confirmado!</h2>
+      <p class="success-description">Recibimos tu pedido correctamente. Nuestro equipo se comunicará contigo para confirmar los detalles.</p>
+      <div class="success-order-code">Código de pedido <strong id="order-success-code"></strong></div>
+      <button class="btn btn-primary btn-full" type="button" id="success-back-to-store">Volver a la tienda</button>
+    </section>
+  </div>
   <div class="modal-backdrop hidden" id="login-modal">
     <section class="modal login-modal" role="dialog" aria-modal="true" aria-label="Acceso del equipo">
       <button class="icon-button modal-close" data-close="login-modal" aria-label="Cerrar">×</button>
