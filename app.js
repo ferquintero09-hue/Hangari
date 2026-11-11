@@ -265,24 +265,38 @@ async function submitOrder(e) {
 
 
   async function login(e) {
-    e.preventDefault(); if(!db){notify("Primero configura las credenciales de Supabase.",true);return;}
-    const f=Object.fromEntries(new FormData(e.currentTarget).entries());
-    const {data,error}=await db.auth.signInWithPassword({email:f.email,password:f.password});
-    if(error){notify("No fue posible iniciar sesión. Verifica tus datos.",true);return;}
+    e.preventDefault();
+    if(!db){notify("Primero configura las credenciales de Supabase.",true);return;}
+    const form=e.currentTarget;
+    const button=form.querySelector('button[type="submit"]');
+    const f=Object.fromEntries(new FormData(form).entries());
+    button.disabled=true;button.textContent="Ingresando…";
+    const {error}=await db.auth.signInWithPassword({email:f.email,password:f.password});
+    if(error){notify("No fue posible iniciar sesión. Verifica tus datos.",true);button.disabled=false;button.textContent="Ingresar al panel";return;}
     await loadStaff();
+    button.disabled=false;button.textContent="Ingresar al panel";
   }
   async function loadStaff() {
     const {data:{user}}=await db.auth.getUser(); currentUser=user;
     if(!user){showStore();return;}
     const {data:prof,error}=await db.from("profiles").select("id,full_name,role").eq("id",user.id).single();
-    if(error||!prof){await db.auth.signOut();notify("Tu usuario no tiene un rol habilitado en Hangary.",true);return;}
-    profile=prof; $("#storefront").classList.add("hidden"); $("#staff-app").classList.remove("hidden");
+    if(error||!prof||!["admin","delivery"].includes(prof.role)){
+      await db.auth.signOut();showStore();notify("Tu usuario no tiene un rol habilitado en Hangary.",true);return;
+    }
+    profile=prof;$("#storefront").classList.add("hidden");$(".site-header").classList.add("hidden");$(".site-footer").classList.add("hidden");$("#staff-app").classList.remove("hidden");
+    closeModal("login-modal");
     $("#staff-role-label").textContent=prof.role==="admin"?"Administrador":"Domiciliario";
     $("#dashboard-title").textContent=prof.role==="admin"?"Gestión de pedidos":"Mis entregas";
     $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
+    $("#team-management").classList.toggle("hidden",prof.role!=="admin");
+    if(prof.role==="admin")await loadDeliveryTeam();
     await loadOrders();
   }
-  function showStore(){ $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");currentUser=null;profile=null; }
+  function showStore(){
+    $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");
+    $(".site-header").classList.remove("hidden");$(".site-footer").classList.remove("hidden");
+    currentUser=null;profile=null;orders=[];orderFilter="Todos";
+  }
   async function loadOrders() {
     if(!db||!profile)return;
     $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
@@ -335,11 +349,41 @@ async function submitOrder(e) {
   }
   async function assignDelivery(id) {
     const {data,error}=await db.from("profiles").select("id,full_name").eq("role","delivery").order("full_name");
-    if(error||!data?.length){notify("No hay domiciliarios registrados.",true);return;}
-    const choice=prompt("Escribe el número del domiciliario:\n"+data.map((x,i)=>`${i+1}. ${x.full_name||x.id}`).join("\n"));
-    const person=data[Number(choice)-1];if(!person)return;
-    const {error:upError}=await db.from("orders").update({delivery_user_id:person.id,status:"Asignado"}).eq("id",id);
-    if(upError){notify(upError.message,true);return;}notify(`Pedido asignado a ${person.full_name||"domiciliario"}.`);await loadOrders();
+    if(error||!data?.length){notify("No hay domiciliarios registrados. Crea primero un perfil en Gestión del equipo.",true);return;}
+    const modal=document.createElement("div");
+    modal.className="modal-backdrop";
+    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true"><button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Logística Hangary</p><h2>Asignar domiciliario</h2><form class="form-grid"><label class="span-2">Selecciona el responsable<select name="delivery_id" required><option value="">Elige un domiciliario</option>'+data.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("")+'</select></label><button class="btn btn-primary btn-full span-2" type="submit">Asignar pedido</button></form></section>';
+    document.body.appendChild(modal);
+    const close=()=>modal.remove();
+    modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close"))close();});
+    modal.querySelector("form").addEventListener("submit",async e=>{
+      e.preventDefault();const person=data.find(x=>x.id===new FormData(e.currentTarget).get("delivery_id"));if(!person)return;
+      const submit=e.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;submit.textContent="Asignando…";
+      const {error:upError}=await db.from("orders").update({delivery_user_id:person.id,status:"Asignado"}).eq("id",id);
+      if(upError){notify(upError.message,true);submit.disabled=false;submit.textContent="Asignar pedido";return;}
+      close();notify("Pedido asignado a "+person.full_name+".");await loadOrders();
+    });
+  }
+
+  async function loadDeliveryTeam() {
+    if(!db||profile?.role!=="admin")return;
+    const list=$("#delivery-team-list");
+    list.innerHTML='<div class="loading">Consultando equipo…</div>';
+    const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"list"}});
+    if(error||data?.error){list.innerHTML='<p class="empty-state">No fue posible cargar los domiciliarios.</p>';return;}
+    const team=data.team||[];
+    list.innerHTML=team.length?team.map(person=>'<article class="team-member"><div><strong>'+esc(person.full_name)+'</strong><span>'+esc(person.email||"Sin correo")+'</span></div><span class="team-status '+(person.invited?"pending":"active")+'">'+(person.invited?"Invitación pendiente":"Cuenta activa")+'</span></article>').join(""):'<p class="empty-state">Aún no hay domiciliarios registrados.</p>';
+  }
+
+  async function createDeliveryProfile(e) {
+    e.preventDefault();if(profile?.role!=="admin")return;
+    const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
+    const values=Object.fromEntries(new FormData(form).entries());
+    button.disabled=true;button.textContent="Creando perfil…";
+    const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"create",full_name:values.full_name,email:values.email}});
+    button.disabled=false;button.textContent="Enviar invitación";
+    if(error||data?.error){notify(data?.error||"No se pudo crear el perfil.",true);return;}
+    form.reset();notify(data.message||"Domiciliario registrado.");await loadDeliveryTeam();
   }
 
   // UI events
@@ -348,7 +392,7 @@ async function submitOrder(e) {
   $("#cart-close").addEventListener("click",hideCart);$("#cart-overlay").addEventListener("click",hideCart);
   $("#checkout-open").addEventListener("click",()=>{hideCart();openModal("checkout-modal");$("#checkout-total").textContent=money(total());});
   $("#checkout-form").addEventListener("submit",submitOrder);
-  $("#staff-login-open").addEventListener("click",()=>openModal("login-modal"));$("#login-form").addEventListener("submit",login);
+  $("#staff-login-open").addEventListener("click",()=>openModal("login-modal"));$("#login-form").addEventListener("submit",login);$("#delivery-team-form").addEventListener("submit",createDeliveryProfile);
   document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
   document.querySelectorAll(".modal-backdrop").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden");}));
   $("#logout-button").addEventListener("click",async()=>{if(db)await db.auth.signOut();showStore();notify("Sesión cerrada.");});
