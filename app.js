@@ -314,7 +314,7 @@ async function submitOrder(e) {
     const shown=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
     $("#orders-list").innerHTML=shown.length?shown.map(orderCard).join(""):'<div class="empty-panel"><span>✧</span><h3>No hay pedidos en esta vista</h3><p>Cuando se registren pedidos, aparecerán aquí.</p></div>';
     document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
-    document.querySelectorAll("[data-assign]").forEach(b=>b.addEventListener("click",()=>assignDelivery(b.dataset.assign)));
+    document.querySelectorAll("[data-assign-order]").forEach(b=>b.addEventListener("click",()=>{const orderId=b.getAttribute("data-assign-order");if(!orderId||orderId==="undefined"){notify("No se pudo identificar el pedido. Actualiza el panel e inténtalo de nuevo.",true);console.error("ID de pedido ausente en botón de asignación",b);return;}assignDelivery(orderId);}));
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
   }
   function orderCard(o) {
@@ -325,7 +325,7 @@ async function submitOrder(e) {
       actions=`<div class="order-actions">
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
         ${o.payment_status!=="Pagado"?`<button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">Marcar pago recibido</button>`:""}
-        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign="${o.id}">Asignar domiciliario</button>`:""}
+        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">Asignar domiciliario</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
       </div>`;
