@@ -372,7 +372,7 @@ async function submitOrder(e) {
     const {data,error}=await db.functions.invoke("manage-delivery-team",{body:{action:"list"}});
     if(error||data?.error){list.innerHTML='<p class="empty-state">No fue posible cargar los domiciliarios.</p>';return;}
     const team=data.team||[];
-    list.innerHTML=team.length?team.map(person=>'<article class="team-member"><div><strong>'+esc(person.full_name)+'</strong><span>'+esc(person.email||"Sin correo")+'</span></div><span class="team-status '+(person.invited?"pending":"active")+'">'+(person.invited?"Invitación pendiente":"Cuenta activa")+'</span></article>').join(""):'<p class="empty-state">Aún no hay domiciliarios registrados.</p>';
+    list.innerHTML=team.length?team.map(person=>'<article class="team-member"><div><strong>'+esc(person.full_name)+'</strong><span>'+esc(person.email||"Sin correo")+'</span></div><span class="team-status '+(person.active?"active":"pending")+'">'+(person.active?"Acceso habilitado":"Revisar cuenta")+'</span></article>').join(""):'<p class="empty-state">Aún no hay domiciliarios registrados.</p>';
   }
 
   async function createDeliveryProfile(e) {
