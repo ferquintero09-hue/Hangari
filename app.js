@@ -314,7 +314,7 @@ async function submitOrder(e) {
     const shown=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
     $("#orders-list").innerHTML=shown.length?shown.map(orderCard).join(""):'<div class="empty-panel"><span>✧</span><h3>No hay pedidos en esta vista</h3><p>Cuando se registren pedidos, aparecerán aquí.</p></div>';
     document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
-    document.querySelectorAll("[data-assign]").forEach(b=>b.addEventListener("click",()=>assignDelivery(b.dataset.id)));
+    document.querySelectorAll("[data-assign]").forEach(b=>b.addEventListener("click",()=>assignDelivery(b.dataset.assign)));
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
   }
   function orderCard(o) {
