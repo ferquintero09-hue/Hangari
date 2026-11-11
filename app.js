@@ -164,7 +164,13 @@
       fields+='</select></label>';
     }
     fields+='<label class="span-2">Ensalada<select name="salad" required><option value="">Selecciona una ensalada</option>'+saladChoices.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("")+'</select></label>';
-    fields+='<label class="span-2">Guarnición<select name="garnish" required><option value="">Selecciona una guarnición</option>'+garnishChoices.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("")+'</select></label>';
+    const garnishImages={
+      "Papa amarilla en cascos":"papa-amarilla-cascos.jpg",
+      "Papa a la francesa":"papas-francesa.jpg",
+      "Pan navideño":"pan-navideño.jpg",
+      "Rapiyuca":"rapi-yuca.jpg"
+    };
+    fields+='<div class="garnish-field span-2"><span class="garnish-field-title">Guarnición</span><div class="garnish-options">'+garnishChoices.map(n=>'<label class="garnish-option"><input type="radio" name="garnish" value="'+esc(n)+'" required><span class="garnish-option-card"><img src="'+encodeURI(PRODUCT_IMG_BASE+'guarnicion/'+garnishImages[n])+'" alt="'+esc(n)+'" loading="lazy"><span>'+esc(n)+'</span></span></label>').join("")+'</div></div>';
     fields+='<div class="checkout-summary span-2"><span>Precio del plato</span><strong>'+money(p.price)+'</strong></div><button class="btn btn-primary btn-full span-2" type="submit">Agregar al pedido</button>';
     $("#dish-config-form").innerHTML=fields;
     $("#dish-config-form").onsubmit=e=>{
