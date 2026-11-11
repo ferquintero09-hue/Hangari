@@ -142,9 +142,9 @@
     document.body.classList.remove("gallery-open");
   }
   const dishRules = {
-    "Plato 1": { count: 1, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu"] },
-    "Plato 2": { count: 2, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu"] },
-    "Plato 3": { count: 2, proteins: ["Capón relleno","Medallones de cerdo","Pechuga Cordon Bleu","Lomo relleno","Pollo relleno"] }
+    "Plato 1": { count: 1, proteins: ["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"] },
+    "Plato 2": { count: 2, proteins: ["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"] },
+    "Plato 3": { count: 2, proteins: ["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu","Lomo relleno","Pollo relleno"] }
   };
   const saladChoices=["Ensalada rusa","Ensalada colombiana"];
   const garnishChoices=["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"];
