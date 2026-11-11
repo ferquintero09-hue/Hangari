@@ -289,3 +289,17 @@ body.gallery-open{overflow:hidden}
 .dish-config-modal select{width:100%;min-height:46px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font:inherit;font-size:14px}
 .cart-options{display:block;margin-top:6px;color:var(--muted);line-height:1.55}
 .order-item-options{display:inline-block;margin:2px 0 5px 22px;color:var(--muted);line-height:1.55}
+
+
+/* ---------- Selector visual de guarniciones ---------- */
+.garnish-field{display:flex;flex-direction:column;gap:10px}
+.garnish-field-title{font-size:13px;font-weight:700;color:var(--ink)}
+.garnish-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.garnish-option{display:block;min-width:0;cursor:pointer}
+.garnish-option input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.garnish-option-card{display:flex;flex-direction:column;gap:7px;height:100%;padding:6px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .2s,box-shadow .2s,transform .2s}
+.garnish-option-card img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:var(--beige)}
+.garnish-option-card>span{font-size:11px;font-weight:600;line-height:1.3;text-align:center;color:var(--ink);padding:0 2px 3px}
+.garnish-option input:checked+.garnish-option-card{border:2px solid var(--gold-deep);padding:5px;background:#fffaf0;box-shadow:0 0 0 3px rgba(196,157,78,.18)}
+.garnish-option input:focus-visible+.garnish-option-card{outline:2px solid var(--gold-deep);outline-offset:3px}
+@media(max-width:520px){.garnish-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.garnish-option-card img{aspect-ratio:1.25/1}.garnish-option-card>span{font-size:12px}}
