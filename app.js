@@ -24,7 +24,7 @@
   ];
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
-  let statsPeriod = "all";
+  let statsPeriod = "all", inventoryItems = [], staffRealtimeChannel = null;
   let toastTimer;
 
   function notify(message, error=false) {
@@ -301,10 +301,17 @@ async function submitOrder(e) {
     $("#admin-navigation").classList.toggle("hidden",prof.role!=="admin");
     $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");
     document.querySelectorAll("[data-staff-view]").forEach(b=>b.classList.toggle("active",b.dataset.staffView==="orders"));
-    if(prof.role==="admin")await loadDeliveryTeam();
+    if(prof.role==="admin"){await loadDeliveryTeam();await loadInventory();}
     await loadOrders();
+    if(staffRealtimeChannel)db.removeChannel(staffRealtimeChannel);
+    staffRealtimeChannel=db.channel("hangary-staff-live")
+      .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders())
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"order_items"},()=>loadOrders())
+      .on("postgres_changes",{event:"*",schema:"public",table:"inventory_items"},()=>{if(profile?.role==="admin")loadInventory();})
+      .subscribe();
   }
   function showStore(){
+    if(staffRealtimeChannel&&db){db.removeChannel(staffRealtimeChannel);staffRealtimeChannel=null;}
     $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");
     $(".site-header").classList.remove("hidden");$(".site-footer").classList.remove("hidden");
     currentUser=null;profile=null;orders=[];orderFilter="Todos";
@@ -312,7 +319,7 @@ async function submitOrder(e) {
   async function loadOrders() {
     if(!db||!profile)return;
     $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
-    let q=db.from("orders").select("*,delivery_profile:profiles!orders_delivery_user_id_fkey(full_name),order_items(id,quantity,unit_price,product_name,options)").order("created_at",{ascending:false});
+    let q=db.from("orders").select("*,delivery_profile:profiles!orders_delivery_user_id_fkey(full_name),order_items(id,quantity,unit_price,product_name,options,product:products(category))").order("created_at",{ascending:false});
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
@@ -367,16 +374,9 @@ async function submitOrder(e) {
     const range=getStatsRange();
     const periodOrders=orders.filter(o=>{const d=dateInBogota(o.created_at);return d>=range.from&&d<=range.to;});
     const activeOrders=periodOrders.filter(o=>o.status!=="Cancelado");
-    const paidOrders=orders.filter(o=>{
-      if(o.payment_status!=="Pagado")return false;
-      const paymentDate=dateInBogota(o.paid_at||o.created_at);
-      return paymentDate>=range.from&&paymentDate<=range.to;
-    });
+    const paidOrders=orders.filter(o=>o.payment_status==="Pagado"&&dateInBogota(o.paid_at||o.created_at)>=range.from&&dateInBogota(o.paid_at||o.created_at)<=range.to);
     const pendingOrders=activeOrders.filter(o=>o.payment_status!=="Pagado");
-    const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0);
-    const collected=paidOrders.reduce((s,o)=>s+Number(o.total||0),0);
-    const pendingAmount=pendingOrders.reduce((s,o)=>s+Number(o.total||0),0);
-    const average=activeOrders.length?sales/activeOrders.length:0;
+    const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0),collected=paidOrders.reduce((s,o)=>s+Number(o.total||0),0),pendingAmount=pendingOrders.reduce((s,o)=>s+Number(o.total||0),0),average=activeOrders.length?sales/activeOrders.length:0;
     const methods=["Transferencia","Efectivo","Datáfono","Otro"];
     const paymentTotals=methods.map(method=>({method,total:paidOrders.filter(o=>o.confirmed_payment_method===method).reduce((s,o)=>s+Number(o.total||0),0)}));
     const unclassified=paidOrders.filter(o=>!o.confirmed_payment_method).reduce((s,o)=>s+Number(o.total||0),0);
@@ -384,29 +384,45 @@ async function submitOrder(e) {
     const assigned=activeOrders.filter(o=>o.delivery_user_id),unassigned=activeOrders.filter(o=>!o.delivery_user_id);
     const driverMap={};assigned.forEach(o=>{const n=o.delivery_profile?.full_name||"Domiciliario sin nombre";driverMap[n]=(driverMap[n]||0)+1;});
     const drivers=Object.entries(driverMap).sort((x,y)=>y[1]-x[1]),maxPayment=Math.max(1,...paymentRows.map(x=>x.total)),maxDriver=Math.max(1,...drivers.map(x=>x[1]));
-    const productMap={};activeOrders.forEach(o=>(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto";if(!productMap[n])productMap[n]={quantity:0,total:0};productMap[n].quantity+=Number(i.quantity||0);productMap[n].total+=Number(i.quantity||0)*Number(i.unit_price||0);}));
-    const topProducts=Object.entries(productMap).sort((x,y)=>y[1].quantity-x[1].quantity).slice(0,6);
+    const productMap={},categoryMap={},dayMap={};
+    activeOrders.forEach(o=>{const day=dateInBogota(o.created_at);dayMap[day]=(dayMap[day]||0)+Number(o.total||0);(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto",cat=i.product?.category||"Otros",qty=Number(i.quantity||0),value=qty*Number(i.unit_price||0);if(!productMap[n])productMap[n]={quantity:0,total:0};productMap[n].quantity+=qty;productMap[n].total+=value;categoryMap[cat]=(categoryMap[cat]||0)+value;});});
+    const topProducts=Object.entries(productMap).sort((x,y)=>y[1].quantity-x[1].quantity).slice(0,8),categories=["Proteínas","Ensaladas","Platos","Novenitas"];
+    const categoryRows=categories.map(name=>({name,total:categoryMap[name]||0})).filter(x=>x.total>0),maxCategory=Math.max(1,...categoryRows.map(x=>x.total));
+    const days=Object.entries(dayMap).sort((x,y)=>x[0].localeCompare(y[0])).slice(-10),maxDay=Math.max(1,...days.map(x=>x[1]));
     $("#statistics-content").innerHTML=`
-      <div class="statistics-kpis">
-        <article class="statistics-kpi featured"><span>Ventas registradas</span><strong>${money(sales)}</strong><small>${activeOrders.length} pedidos no cancelados</small></article>
-        <article class="statistics-kpi"><span>Dinero recaudado</span><strong>${money(collected)}</strong><small>${paidOrders.length} pagos confirmados</small></article>
-        <article class="statistics-kpi"><span>Por recaudar</span><strong>${money(pendingAmount)}</strong><small>${pendingOrders.length} pedidos pendientes de pago</small></article>
-        <article class="statistics-kpi"><span>Promedio por pedido</span><strong>${money(average)}</strong><small>Ticket promedio del periodo</small></article>
-      </div>
+      <div class="statistics-kpis"><article class="statistics-kpi featured"><span>Ventas registradas</span><strong>${money(sales)}</strong><small>${activeOrders.length} pedidos no cancelados</small></article><article class="statistics-kpi"><span>Dinero recaudado</span><strong>${money(collected)}</strong><small>${paidOrders.length} pagos confirmados</small></article><article class="statistics-kpi"><span>Por recaudar</span><strong>${money(pendingAmount)}</strong><small>${pendingOrders.length} pedidos pendientes de pago</small></article><article class="statistics-kpi"><span>Promedio por pedido</span><strong>${money(average)}</strong><small>Ticket promedio del periodo</small></article></div>
       <div class="statistics-two-columns">
-        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Recaudo por medio de pago</h3><p>Solo pagos marcados como recibidos</p></div><strong>${money(collected)}</strong></div>
-          ${paymentRows.length?paymentRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.method)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxPayment*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay pagos confirmados en este periodo.</p>'}
-          ${unclassified?'<p class="statistics-note">Hay pagos anteriores sin medio confirmado. Puedes clasificarlos desde Pedidos.</p>':""}
-        </section>
-        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Control de domicilios</h3><p>Pedidos del periodo seleccionado</p></div><strong>${assigned.length+unassigned.length}</strong></div>
-          <div class="delivery-summary"><div><span>Asignados</span><strong>${assigned.length}</strong></div><div><span>Sin asignar</span><strong>${unassigned.length}</strong></div></div>
-          ${drivers.length?'<h4>Pedidos por domiciliario</h4>'+drivers.map(([name,count])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(name)}</span><strong>${count} pedidos</strong></div><div class="stat-bar-track delivery-track"><span style="width:${Math.max(3,count/maxDriver*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Todavía no hay domicilios asignados.</p>'}
-        </section>
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Ingresos por categoría</h3><p>Valor comercial de los productos solicitados</p></div><strong>${money(sales)}</strong></div>${categoryRows.length?categoryRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.name)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxCategory*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay ventas en este periodo.</p>'}</section>
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Recaudo por medio de pago</h3><p>Solo pagos marcados como recibidos</p></div><strong>${money(collected)}</strong></div>${paymentRows.length?paymentRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.method)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxPayment*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay pagos confirmados en este periodo.</p>'}${unclassified?'<p class="statistics-note">Hay pagos sin medio confirmado. Puedes clasificarlos desde Pedidos.</p>':""}</section>
       </div>
-      <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Clasificación por unidades solicitadas</p></div><strong>${topProducts.length} productos</strong></div>
-        ${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${d.quantity} unidades</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}
-      </section>
-      <p class="statistics-footnote">Las ventas se calculan con pedidos no cancelados. El recaudo incluye pedidos marcados como Pagados. Ventas, pendientes, domicilios y productos usan la fecha de creación del pedido. El recaudo se contabiliza por la fecha en que el administrador confirmó el pago.</p>`;
+      <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Ventas por día</h3><p>Valor de los pedidos no cancelados</p></div><strong>${days.length} días</strong></div>${days.length?days.map(([day,total])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${new Date(day+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short"})}</span><strong>${money(total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,total/maxDay*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">No hay ventas para graficar.</p>'}</section>
+      <div class="statistics-two-columns">
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Control de domicilios</h3><p>Pedidos del periodo seleccionado</p></div><strong>${assigned.length+unassigned.length}</strong></div><div class="delivery-summary"><div><span>Asignados</span><strong>${assigned.length}</strong></div><div><span>Sin asignar</span><strong>${unassigned.length}</strong></div></div>${drivers.length?'<h4>Pedidos por domiciliario</h4>'+drivers.map(([name,count])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(name)}</span><strong>${count} pedidos</strong></div><div class="stat-bar-track delivery-track"><span style="width:${Math.max(3,count/maxDriver*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Todavía no hay domicilios asignados.</p>'}</section>
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Unidades y valor generado</p></div><strong>${topProducts.length} productos</strong></div>${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${d.quantity} uds.</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}</section>
+      </div><p class="statistics-footnote">Las ventas usan pedidos no cancelados y fecha de creación. El recaudo usa la fecha de confirmación del pago. Los componentes de los platos se controlan en inventario y no se contabilizan dos veces como ingresos.</p>`;
+  }
+  async function loadInventory(){
+    if(!db||profile?.role!=="admin")return;
+    const {data,error}=await db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name");
+    if(error){console.error(error);$("#inventory-content").innerHTML='<p class="empty-state">No fue posible consultar el inventario.</p>';return;}
+    inventoryItems=data||[];renderInventory();
+  }
+  function renderInventory(){
+    if(profile?.role!=="admin")return;
+    const categories=["Proteínas","Ensaladas","Guarniciones","Novenitas"],configured=inventoryItems.filter(x=>x.is_configured).length;
+    const cards=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category),initial=rows.reduce((s,x)=>s+Number(x.initial_stock||0),0),current=rows.reduce((s,x)=>s+Number(x.current_stock||0),0);return `<article class="inventory-summary-card"><span>${esc(category)}</span><strong>${current.toLocaleString("es-CO")} <small>${esc(rows[0]?.unit||"")}</small></strong><small>Inicial: ${initial.toLocaleString("es-CO")} · ${rows.length} referencias</small></article>`;}).join("");
+    const groups=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category);return `<section class="inventory-category"><div class="inventory-category-heading"><h3>${esc(category)}</h3><span>${rows.filter(x=>x.is_configured).length}/${rows.length} configurados</span></div><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Producto</th><th>Unidad</th><th>Inventario inicial</th><th>Disponible</th><th>Actualizar existencia</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${esc(item.name)}</strong></td><td>${esc(item.unit)}</td><td>${item.is_configured?Number(item.initial_stock).toLocaleString("es-CO"):"—"}</td><td><strong class="${Number(item.current_stock)<=3?"inventory-low":""}">${item.is_configured?Number(item.current_stock).toLocaleString("es-CO"):"Sin registrar"}</strong></td><td><form class="inventory-update-form" data-inventory-form="${item.id}"><input name="quantity" type="number" min="0" step="1" required value="${item.is_configured?Number(item.current_stock):""}" placeholder="Cantidad"><input name="note" type="text" maxlength="120" placeholder="Motivo (opcional)"><button class="btn btn-outline btn-small" type="submit">Guardar</button></form></td></tr>`).join("")}</tbody></table></div></section>`;}).join("");
+    $("#inventory-content").innerHTML=`<div class="inventory-summary-grid">${cards}</div><div class="inventory-progress-note">${configured} de ${inventoryItems.length} referencias tienen inventario inicial registrado. Los pedidos nuevos descuentan automáticamente porciones, unidades o combos. Los ajustes posteriores quedan registrados.</div>${groups}`;
+    $("#inventory-content").querySelectorAll("[data-inventory-form]").forEach(form=>form.addEventListener("submit",saveInventoryStock));
+  }
+  async function saveInventoryStock(e){
+    e.preventDefault();if(profile?.role!=="admin")return;
+    const form=e.currentTarget,id=form.dataset.inventoryForm,item=inventoryItems.find(x=>x.id===id),data=new FormData(form),quantity=Number(data.get("quantity")),note=String(data.get("note")||"");
+    if(!item||!Number.isFinite(quantity)||quantity<0){notify("Ingresa una cantidad válida.",true);return;}
+    const button=form.querySelector("button");button.disabled=true;button.textContent="Guardando…";
+    const result=!item.is_configured?await db.rpc("admin_set_inventory_stock",{p_item_id:id,p_quantity:quantity}):await db.rpc("admin_adjust_inventory",{p_item_id:id,p_delta:quantity-Number(item.current_stock),p_note:note||"Ajuste de existencia física"});
+    if(result.error){notify(result.error.message,true);button.disabled=false;button.textContent="Guardar";return;}
+    notify("Inventario actualizado para "+item.name+".");await loadInventory();
   }
   function slug(s){return String(s||"").toLowerCase().replaceAll(" ","-").replaceAll("ó","o").replaceAll("á","a");}
   function formatDate(d){return d?new Date(d+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}):"Por definir";}
@@ -495,8 +511,9 @@ async function submitOrder(e) {
   $("#logout-button").addEventListener("click",async()=>{if(db)await db.auth.signOut();showStore();notify("Sesión cerrada.");});
   $("#back-to-store").addEventListener("click",e=>{e.preventDefault();showStore();});
   $("#refresh-orders").addEventListener("click",loadOrders);
+  $("#refresh-inventory").addEventListener("click",loadInventory);
   $("#orders-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(!b)return;orderFilter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderDashboard();});
-  $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view==="statistics");if(view==="statistics")renderStatistics();});
+  $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");$("#inventory-view").classList.toggle("hidden",view!=="inventory");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":view==="inventory"?"Control de inventario":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view!=="orders");if(view==="statistics")renderStatistics();if(view==="inventory")loadInventory();});
   $("#stats-period").addEventListener("change",e=>{statsPeriod=e.target.value;$("#stats-custom-dates").classList.toggle("hidden",statsPeriod!=="custom");renderStatistics();});
   ["stats-from","stats-to"].forEach(id=>$("#"+id).addEventListener("change",renderStatistics));
   $("#year").textContent=new Date().getFullYear();
