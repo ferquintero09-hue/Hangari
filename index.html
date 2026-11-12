@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261111-brand-metallic">
+  <link rel="stylesheet" href="styles.css?v=20261112-inventory1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -121,6 +121,7 @@
       <nav class="staff-navigation hidden" id="admin-navigation" aria-label="Secciones administrativas">
         <button class="staff-nav-button active" type="button" data-staff-view="orders"><span>▤</span> Pedidos</button>
         <button class="staff-nav-button" type="button" data-staff-view="statistics"><span>▥</span> Estadísticas</button>
+        <button class="staff-nav-button" type="button" data-staff-view="inventory"><span>▦</span> Inventario</button>
       </nav>
       <section id="orders-view">
       <div class="stats-grid" id="stats-grid"></div>
@@ -148,6 +149,10 @@
           </div>
         </div>
         <div id="statistics-content"><div class="loading">Calculando estadísticas…</div></div>
+      </section>
+      <section id="inventory-view" class="inventory-view hidden" aria-label="Control de inventario">
+        <div class="statistics-heading"><div><p class="eyebrow">Existencias y disponibilidad</p><h2>Control de inventario</h2><p>Registra cantidades iniciales y ajusta las existencias físicas de cada referencia.</p></div><button class="btn btn-outline" id="refresh-inventory" type="button">↻ Actualizar inventario</button></div>
+        <div id="inventory-content"><div class="loading">Consultando inventario…</div></div>
       </section>
     </div>
   </section>
@@ -219,7 +224,7 @@
     });
   </script>
   <script src="config.js"></script>
-  <script src="app.js?v=20261111-dashboard3"></script>
+  <script src="app.js?v=20261112-inventory1"></script>
 
   <script>
     (function(){
