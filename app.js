@@ -299,7 +299,7 @@ async function submitOrder(e) {
     $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
     $("#team-management").classList.toggle("hidden",prof.role!=="admin");
     $("#admin-navigation").classList.toggle("hidden",prof.role!=="admin");
-    $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");
+    $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");$("#inventory-view").classList.add("hidden");
     document.querySelectorAll("[data-staff-view]").forEach(b=>b.classList.toggle("active",b.dataset.staffView==="orders"));
     if(prof.role==="admin"){await loadDeliveryTeam();await loadInventory();}
     await loadOrders();
