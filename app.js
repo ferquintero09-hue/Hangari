@@ -404,12 +404,20 @@ async function submitOrder(e) {
   }
   async function loadInventory(){
     if(!db||profile?.role!=="admin")return;
-    const [{data,error},{data:movementData,error:movementError}]=await Promise.all([
-      db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name"),
-      db.from("inventory_movements").select("id,inventory_item_id,movement_type,quantity_delta,note,created_at,order_id").order("created_at",{ascending:true}).limit(2000)
-    ]);
-    if(error||movementError){console.error(error||movementError);$("#inventory-content").innerHTML='<p class="empty-state">No fue posible consultar el inventario y sus movimientos.</p>';return;}
-    inventoryItems=data||[];inventoryMovements=movementData||[];renderInventory();
+    const target=$("#inventory-content");
+    if(target)target.innerHTML='<div class="loading">Consultando inventario…</div>';
+    try{
+      const itemsResult=await db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name");
+      if(itemsResult.error)throw itemsResult.error;
+      const movementsResult=await db.from("inventory_movements").select("id,inventory_item_id,movement_type,quantity_delta,note,created_at,order_id").order("created_at",{ascending:true}).limit(2000);
+      if(movementsResult.error)throw movementsResult.error;
+      inventoryItems=itemsResult.data||[];inventoryMovements=movementsResult.data||[];
+      renderInventory();
+    }catch(error){
+      console.error("Error cargando inventario Hangary:",error);
+      if(target)target.innerHTML='<div class="empty-state"><strong>No fue posible cargar el inventario.</strong><p>Verifica tu conexión y vuelve a intentarlo.</p><button type="button" class="btn btn-outline" id="retry-inventory">Reintentar</button></div>';
+      const retry=$("#retry-inventory");if(retry)retry.addEventListener("click",loadInventory);
+    }
   }
   function renderInventory(){
     if(profile?.role!=="admin")return;
