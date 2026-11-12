@@ -408,16 +408,20 @@ async function submitOrder(e) {
     if(!db||profile?.role!=="admin")return;
     const target=$("#inventory-content");
     if(target)target.innerHTML='<div class="loading">Consultando inventario…</div>';
+    let inventoryStage="consultando referencias";
     try{
       const itemsResult=await db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name");
       if(itemsResult.error)throw itemsResult.error;
+      inventoryStage="consultando movimientos";
       const movementsResult=await db.from("inventory_movements").select("id,inventory_item_id,movement_type,quantity_delta,note,created_at,order_id").order("created_at",{ascending:true}).limit(2000);
       if(movementsResult.error)throw movementsResult.error;
       inventoryItems=itemsResult.data||[];inventoryMovements=movementsResult.data||[];
+      inventoryStage="dibujando tablas y gráficos";
       renderInventory();
     }catch(error){
-      console.error("Error cargando inventario Hangary:",error);
-      if(target)target.innerHTML='<div class="empty-state"><strong>No fue posible cargar el inventario.</strong><p>Verifica tu conexión y vuelve a intentarlo.</p><button type="button" class="btn btn-outline" id="retry-inventory">Reintentar</button></div>';
+      console.error("Error cargando inventario Hangary:",inventoryStage,error,error?.stack);
+      const detail=String(error?.message||error||"Error desconocido").slice(0,240);
+      if(target)target.innerHTML='<div class="empty-state"><strong>No fue posible mostrar el inventario.</strong><p>Etapa: '+esc(inventoryStage)+'. Detalle: '+esc(detail)+'</p><button type="button" class="btn btn-outline" id="retry-inventory">Reintentar</button></div>';
       const retry=$("#retry-inventory");if(retry)retry.addEventListener("click",loadInventory);
     }
   }
