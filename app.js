@@ -445,11 +445,12 @@ async function submitOrder(e) {
     let offset=0;const slices=metrics.map((item,i)=>{const pct=totalCurrent?item.current/totalCurrent*100:0,from=offset;offset+=pct;return {item,pct,color:palette[i%palette.length],from,to:offset};});
     const pie=slices.map(s=>`${s.color} ${s.from}% ${s.to}%`).join(",");
     const dateMap={};const categoryIds=new Set(rows.map(x=>x.id));
-    inventoryMovements.filter(m=>categoryIds.has(m.inventory_item_id)).forEach(m=>{const day=String(m.created_at).slice(0,10);dateMap[day]=(dateMap[day]||0)+Number(m.quantity_delta||0);});
+    inventoryMovements.filter(m=>categoryIds.has(m.inventory_item_id)&&m.note!=="Registro o actualización de inventario inicial").forEach(m=>{const day=String(m.created_at).slice(0,10);dateMap[day]=(dateMap[day]||0)+Number(m.quantity_delta||0);});
     const dayRows=Object.entries(dateMap).sort((a,b)=>a[0].localeCompare(b[0]));
     let running=totalCurrent-dayRows.reduce((s,x)=>s+x[1],0);
-    const points=dayRows.map(([day,delta])=>{running+=delta;return {day,value:Math.max(0,running)};});
-    const series=points.length?points:[{day:"Sin movimientos",value:totalCurrent}];
+    const points=[{day:"Inventario inicial",value:Math.max(0,running)}];
+    dayRows.forEach(([day,delta])=>{running+=delta;points.push({day,value:Math.max(0,running)});});
+    const series=points;
     const W=680,H=230,pad=36,maxLine=Math.max(1,...series.map(x=>x.value)),coords=series.map((p,i)=>({x:pad+(series.length===1?(W-pad*2)/2:i*(W-pad*2)/(series.length-1)),y:H-pad-(p.value/maxLine)*(H-pad*2),...p}));
     const line=coords.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
     const area=line+` L ${coords[coords.length-1].x} ${H-pad} L ${coords[0].x} ${H-pad} Z`;
