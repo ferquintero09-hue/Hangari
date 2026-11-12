@@ -25,6 +25,9 @@
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
   let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
+  const isWeightProduct=p=>["Proteínas","Ensaladas"].includes(p.category);
+  const kg=n=>Number(n).toLocaleString("es-CO",{maximumFractionDigits:2});
+  const unitPrice=p=>Number(p.price)/(isWeightProduct(p)?Number(p.base_weight_kg||1):1);
   let toastTimer;
 
   function notify(message, error=false) {
@@ -43,7 +46,7 @@
 
   async function loadProducts() {
     if (db) {
-      const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,image_gallery,active").eq("active",true).order("sort_order");
+      const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,image_gallery,base_weight_kg,active").eq("active",true).order("sort_order");
       if (!error && data) products=data;
       else { console.error(error); products=demoProducts; notify("No fue posible cargar el catálogo. Mostrando productos de demostración.",true); }
     } else products=demoProducts;
@@ -68,7 +71,7 @@
           <span class="photo-hint">Ver fotografías <span aria-hidden="true">↗</span></span>
         </button>
         <div class="product-info"><div><h3>${esc(p.name)}</h3><p>${esc(p.description||"Preparado para compartir.")}</p></div>
-          <div class="product-buy"><div><strong>${money(p.price)}</strong><small>${esc(p.unit||"")}</small></div>
+          <div class="product-buy"><div><strong>${money(unitPrice(p))}</strong><small>${isWeightProduct(p)?"por kg · "+esc(p.unit||""):esc(p.unit||"")}</small></div>
           <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
         </div>
       </article>`).join(""):'<p class="empty-state">Pronto tendremos productos en esta categoría.</p>';
@@ -185,23 +188,24 @@
   function addToCart(id) {
     const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
     if(dishRules[p.name]){openDishConfigurator(p);return;}
+    const weighted=isWeightProduct(p),step=weighted?0.5:1;
     const found=cart.find(x=>String(x.id)===String(id)&&!x.options);
-    if(found)found.quantity++;else cart.push({key:"item-"+Date.now()+"-"+Math.random().toString(36).slice(2,8),id:p.id,name:p.name,price:Number(p.price),quantity:1});
+    if(found)found.quantity+=step;else cart.push({key:"item-"+Date.now()+"-"+Math.random().toString(36).slice(2,8),id:p.id,name:p.name,price:unitPrice(p),quantity:step,weighted});
     renderCart();notify(p.name+" se agregó a tu pedido.");
   }
   function changeQty(key,delta) {
     const item=cart.find(x=>x.key===key);if(!item)return;
-    item.quantity+=delta;if(item.quantity<=0)cart=cart.filter(x=>x.key!==key);renderCart();
+    item.quantity+=delta*(item.weighted?0.5:1);if(item.quantity<=0)cart=cart.filter(x=>x.key!==key);renderCart();
   }
   function optionsSummary(o) {
-    if(!o)return "";
+    if(!o||o.sale_unit==="kg")return "";
     return [].concat(o.proteinas||[],o.ensalada||[],o.guarnicion||[]).filter(Boolean).join(" · ");
   }
   function renderCart() {
-    $("#cart-count").textContent=cart.reduce((s,x)=>s+x.quantity,0);
+    $("#cart-count").textContent=cart.length;
     $("#cart-total").textContent=money(total());$("#checkout-total").textContent=money(total());
     $("#checkout-open").disabled=!cart.length;
-    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+' c/u</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+x.quantity+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(x.price*x.quantity)+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
+    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+(x.weighted?' por kg':' c/u')+'</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+kg(x.quantity)+(x.weighted?' kg':'')+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(x.price*x.quantity)+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
     document.querySelectorAll("[data-qty]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.qty,Number(b.dataset.delta))));
   }
   function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
@@ -233,7 +237,7 @@ async function submitOrder(e) {
   const items = cart.map(x => ({
     product_id: x.id,
     quantity: x.quantity,
-    options: x.options || {}
+    options: x.options || (x.weighted ? {sale_unit:"kg"} : {})
   }));
 
   const btn = $("#submit-order");
@@ -324,7 +328,7 @@ async function submitOrder(e) {
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
-    orders=data||[]; renderDashboard();
+    orders=data||[]; renderDashboard();if(profile.role==="admin"&&!$("#inventory-view").classList.contains("hidden"))renderInventory();
   }
   function renderDashboard() {
     const pending=orders.filter(o=>o.status==="Pendiente").length;
@@ -339,7 +343,7 @@ async function submitOrder(e) {
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
   }
   function orderCard(o) {
-    const items=(o.order_items||[]).map(i=>`${i.quantity} × ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
+    const items=(o.order_items||[]).map(i=>`${i.options?.sale_unit==="kg"?kg(i.quantity)+" kg":kg(i.quantity)+" ×"} ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
     const admin=profile.role==="admin";
     const deliveryName=o.delivery_profile?.full_name || (o.delivery_user_id ? "Nombre no disponible" : "");
     let actions="";
@@ -388,7 +392,7 @@ async function submitOrder(e) {
     const driverMap={};assigned.forEach(o=>{const n=o.delivery_profile?.full_name||"Domiciliario sin nombre";driverMap[n]=(driverMap[n]||0)+1;});
     const drivers=Object.entries(driverMap).sort((x,y)=>y[1]-x[1]),maxPayment=Math.max(1,...paymentRows.map(x=>x.total)),maxDriver=Math.max(1,...drivers.map(x=>x[1]));
     const productMap={},categoryMap={},dayMap={};
-    activeOrders.forEach(o=>{const day=dateInBogota(o.created_at);dayMap[day]=(dayMap[day]||0)+Number(o.total||0);(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto",cat=i.product?.category||"Otros",qty=Number(i.quantity||0),value=qty*Number(i.unit_price||0);if(!productMap[n])productMap[n]={quantity:0,total:0};productMap[n].quantity+=qty;productMap[n].total+=value;categoryMap[cat]=(categoryMap[cat]||0)+value;});});
+    activeOrders.forEach(o=>{const day=dateInBogota(o.created_at);dayMap[day]=(dayMap[day]||0)+Number(o.total||0);(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto",cat=i.product?.category||"Otros",qty=Number(i.quantity||0),value=qty*Number(i.unit_price||0);if(!productMap[n])productMap[n]={quantity:0,total:0,unit:i.options?.sale_unit==="kg"?"kg":"uds."};productMap[n].quantity+=qty;productMap[n].total+=value;categoryMap[cat]=(categoryMap[cat]||0)+value;});});
     const topProducts=Object.entries(productMap).sort((x,y)=>y[1].quantity-x[1].quantity).slice(0,8),categories=["Proteínas","Ensaladas","Platos","Novenitas"];
     const categoryRows=categories.map(name=>({name,total:categoryMap[name]||0})).filter(x=>x.total>0),maxCategory=Math.max(1,...categoryRows.map(x=>x.total));
     const days=Object.entries(dayMap).sort((x,y)=>x[0].localeCompare(y[0])).slice(-10),maxDay=Math.max(1,...days.map(x=>x[1]));
@@ -401,7 +405,7 @@ async function submitOrder(e) {
       <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Ventas por día</h3><p>Valor de los pedidos no cancelados</p></div><strong>${days.length} días</strong></div>${days.length?days.map(([day,total])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${new Date(day+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short"})}</span><strong>${money(total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,total/maxDay*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">No hay ventas para graficar.</p>'}</section>
       <div class="statistics-two-columns">
        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Control de domicilios</h3><p>Pedidos del periodo seleccionado</p></div><strong>${assigned.length+unassigned.length}</strong></div><div class="delivery-summary"><div><span>Asignados</span><strong>${assigned.length}</strong></div><div><span>Sin asignar</span><strong>${unassigned.length}</strong></div></div>${drivers.length?'<h4>Pedidos por domiciliario</h4>'+drivers.map(([name,count])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(name)}</span><strong>${count} pedidos</strong></div><div class="stat-bar-track delivery-track"><span style="width:${Math.max(3,count/maxDriver*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Todavía no hay domicilios asignados.</p>'}</section>
-       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Unidades y valor generado</p></div><strong>${topProducts.length} productos</strong></div>${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${d.quantity} uds.</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}</section>
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Unidades y valor generado</p></div><strong>${topProducts.length} productos</strong></div>${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${kg(d.quantity)} ${d.unit}</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}</section>
       </div><p class="statistics-footnote">Los valores ficticios de recaudo solo se muestran cuando no existen pagos reales confirmados. Las ventas usan pedidos no cancelados y fecha de creación. El recaudo usa la fecha de confirmación del pago. Los componentes de los platos se controlan en inventario y no se contabilizan dos veces como ingresos.</p>`;
   }
   async function loadInventory(){
@@ -427,18 +431,15 @@ async function submitOrder(e) {
   }
   function renderInventory(){
     if(profile?.role!=="admin")return;
-    const categories=["Proteínas","Ensaladas","Guarniciones","Novenitas"],configured=inventoryItems.filter(x=>x.is_configured).length;
+    const categories=["Proteínas","Ensaladas","Novenitas"],configured=inventoryItems.filter(x=>x.is_configured&&x.category!=="Guarniciones").length;
     const cards=categories.map(category=>{
       const rows=inventoryItems.filter(x=>x.category===category),initial=rows.reduce((s,x)=>s+Number(x.initial_stock||0),0),current=rows.reduce((s,x)=>s+Number(x.current_stock||0),0),mixed=category==="Novenitas",active=selectedInventoryCategory===category;
-      return `<button type="button" class="inventory-summary-card inventory-category-select ${active?"selected":""}" data-inventory-category="${esc(category)}" aria-pressed="${active}"><span>${esc(category)}</span><strong>${mixed?rows.filter(x=>x.is_configured&&Number(x.current_stock)>0).length:current.toLocaleString("es-CO")} <small>${mixed?"referencias con stock":esc(rows[0]?.unit||"")}</small></strong><small>${mixed?rows.length+" referencias":"Inicial: "+initial.toLocaleString("es-CO")+" · "+rows.length+" referencias"}</small><span class="inventory-card-hint">Ver análisis <span aria-hidden="true">→</span></span></button>`;
+      return `<button type="button" class="inventory-summary-card inventory-category-select ${active?"selected":""}" data-inventory-category="${esc(category)}" aria-pressed="${active}"><span>${esc(category)}</span><strong>${mixed?rows.filter(x=>x.is_configured&&Number(x.current_stock)>0).length:kg(current)} <small>${mixed?"referencias con stock":esc(rows[0]?.unit||"")}</small></strong><small>${mixed?rows.length+" referencias":"Inicial: "+kg(initial)+" · "+rows.length+" referencias"}</small><span class="inventory-card-hint">Ver análisis <span aria-hidden="true">→</span></span></button>`;
     }).join("");
-    const stockByName=Object.fromEntries(inventoryItems.map(x=>[x.name,Number(x.current_stock||0)]));
-    const sumNames=names=>names.reduce((sum,name)=>sum+(stockByName[name]||0),0);
-    const plate1=Math.min(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"]),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
-    const plate2=Math.min(Math.floor(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"])/2),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
-    const plate3=Math.min(Math.floor(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu","Lomo relleno","Pollo relleno"])/2),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
-    const groups=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category);return `<section class="inventory-category"><div class="inventory-category-heading"><h3>${esc(category)}</h3><span>${rows.filter(x=>x.is_configured).length}/${rows.length} configurados</span></div><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Producto</th><th>Unidad</th><th>Inventario inicial</th><th>Disponible</th><th>Actualizar existencia</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${esc(item.name)}</strong></td><td>${esc(item.unit)}</td><td>${item.is_configured?Number(item.initial_stock).toLocaleString("es-CO"):"—"}</td><td><strong class="${Number(item.current_stock)<=3?"inventory-low":""}">${item.is_configured?Number(item.current_stock).toLocaleString("es-CO"):"Sin registrar"}</strong></td><td><form class="inventory-update-form" data-inventory-form="${item.id}"><input name="quantity" type="number" min="0" step="1" required value="${item.is_configured?Number(item.current_stock):""}" placeholder="Cantidad"><input name="note" type="text" maxlength="120" placeholder="Motivo (opcional)"><button class="btn btn-outline btn-small" type="submit">Guardar</button></form></td></tr>`).join("")}</tbody></table></div></section>`;}).join("");
-    $("#inventory-content").innerHTML=`<div class="inventory-summary-grid">${cards}<article class="inventory-summary-card"><span>Platos preparados</span><strong>1: ${plate1} · 2: ${plate2} · 3: ${plate3}</strong><small>Capacidad estimada según proteínas, ensaladas y guarniciones disponibles</small></article></div><div class="inventory-progress-note">${configured} de ${inventoryItems.length} referencias tienen inventario inicial registrado. Los pedidos nuevos descuentan automáticamente porciones, unidades o combos. Los ajustes posteriores quedan registrados.</div><div id="inventory-analytics">${renderInventoryAnalytics(selectedInventoryCategory)}</div>${groups}`;
+    const plateTotals=Object.fromEntries(["Plato 1","Plato 2","Plato 3"].map(name=>[name,orders.filter(o=>o.status!=="Cancelado").reduce((sum,o)=>sum+(o.order_items||[]).filter(i=>i.product_name===name).reduce((n,i)=>n+Number(i.quantity),0),0)]));
+    const plateTotal=Object.values(plateTotals).reduce((a,b)=>a+b,0);
+    const groups=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category);return `<section class="inventory-category"><div class="inventory-category-heading"><h3>${esc(category)}</h3><span>${rows.filter(x=>x.is_configured).length}/${rows.length} configurados</span></div><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Producto</th><th>Unidad</th><th>Inventario inicial</th><th>Disponible</th><th>Actualizar existencia</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${esc(item.name)}</strong></td><td>${esc(item.unit)}</td><td>${item.is_configured?Number(item.initial_stock).toLocaleString("es-CO"):"—"}</td><td><strong class="${Number(item.current_stock)<=3?"inventory-low":""}">${item.is_configured?Number(item.current_stock).toLocaleString("es-CO"):"Sin registrar"}</strong></td><td><form class="inventory-update-form" data-inventory-form="${item.id}"><input name="quantity" type="number" min="0" step="${item.unit==="kg"?"0.01":"1"}" required value="${item.is_configured?Number(item.current_stock):""}" placeholder="Cantidad"><input name="note" type="text" maxlength="120" placeholder="Motivo (opcional)"><button class="btn btn-outline btn-small" type="submit">Guardar</button></form></td></tr>`).join("")}</tbody></table></div></section>`;}).join("");
+    $("#inventory-content").innerHTML=`<div class="inventory-summary-grid">${cards}<article class="inventory-summary-card"><span>Platos preparados</span><strong>${plateTotal} platos vendidos</strong><small>Plato 1: ${plateTotals["Plato 1"]} · Plato 2: ${plateTotals["Plato 2"]} · Plato 3: ${plateTotals["Plato 3"]} · No se descuentan ingredientes</small></article></div><div class="inventory-progress-note">${configured} de ${inventoryItems.filter(x=>x.category!=="Guarniciones").length} referencias tienen inventario registrado. Proteínas y ensaladas se controlan en kg; Novenitas por unidades o combos. Los platos se contabilizan por cantidad vendida, sin descuento de ingredientes.</div><div id="inventory-analytics">${renderInventoryAnalytics(selectedInventoryCategory)}</div>${groups}`;
     $("#inventory-content").querySelectorAll("[data-inventory-form]").forEach(form=>form.addEventListener("submit",saveInventoryStock));
     $("#inventory-content").querySelectorAll("[data-inventory-category]").forEach(button=>button.addEventListener("click",()=>{selectedInventoryCategory=button.dataset.inventoryCategory;renderInventory();}));
   }
@@ -446,20 +447,20 @@ async function submitOrder(e) {
     const rows=inventoryItems.filter(x=>x.category===category),palette=["#b88b45","#557b65","#607da7","#bb765d","#8872a5","#6c9b9b","#c49c63","#87915b"];
     if(!rows.length)return '<p class="empty-state">No hay referencias para esta categoría.</p>';
     const metrics=rows.map(item=>{
-      const movements=inventoryMovements.filter(m=>m.inventory_item_id===item.id),reserved=movements.filter(m=>m.movement_type==="reserve").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),released=movements.filter(m=>m.movement_type==="release").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),sold=Math.max(0,reserved-released);
+      const movements=inventoryMovements.filter(m=>m.inventory_item_id===item.id&&!String(m.note||"").startsWith("HISTÓRICO EN PORCIONES")),reserved=movements.filter(m=>m.movement_type==="reserve").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),released=movements.filter(m=>m.movement_type==="release").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),sold=Math.max(0,reserved-released);
       return {...item,initial:Number(item.initial_stock||0),current:Number(item.current_stock||0),sold,reserved,released};
     });
     const max=Math.max(1,...metrics.map(x=>Math.max(x.initial,x.sold,x.current))),chartWidth=Math.max(680,metrics.length*138),barW=22;
     const bars=metrics.map((item,i)=>{
       const x=68+i*138,base=235,scale=155/max;
       const vals=[{key:"Inicial",value:item.initial,color:"#c5a36a"},{key:"Vendidas",value:item.sold,color:"#668b75"},{key:"Disponibles",value:item.current,color:"#617fa6"}];
-      return vals.map((v,j)=>{const bh=v.value*scale,bx=x+j*27,by=base-bh;return `<rect x="${bx}" y="${by}" width="${barW}" height="${Math.max(1,bh)}" rx="5" fill="${v.color}"><title>${esc(item.name)} · ${v.key}: ${v.value} ${esc(item.unit)}</title></rect><text x="${bx+barW/2}" y="${Math.max(16,by-7)}" text-anchor="middle" class="chart-value">${v.value}</text>`;}).join("")+`<text x="${x+40}" y="258" text-anchor="middle" class="chart-label">${esc(item.name.length>18?item.name.slice(0,16)+"…":item.name)}</text>`;
+      return vals.map((v,j)=>{const bh=v.value*scale,bx=x+j*27,by=base-bh;return `<rect x="${bx}" y="${by}" width="${barW}" height="${Math.max(1,bh)}" rx="5" fill="${v.color}"><title>${esc(item.name)} · ${v.key}: ${v.value} ${esc(item.unit)}</title></rect><text x="${bx+barW/2}" y="${Math.max(16,by-7)}" text-anchor="middle" class="chart-value">${kg(v.value)}</text>`;}).join("")+`<text x="${x+40}" y="258" text-anchor="middle" class="chart-label">${esc(item.name.length>18?item.name.slice(0,16)+"…":item.name)}</text>`;
     }).join("");
     const totalCurrent=metrics.reduce((s,x)=>s+x.current,0),totalInitial=metrics.reduce((s,x)=>s+x.initial,0),totalSold=metrics.reduce((s,x)=>s+x.sold,0);
     let offset=0;const slices=metrics.map((item,i)=>{const pct=totalCurrent?item.current/totalCurrent*100:0,from=offset;offset+=pct;return {item,pct,color:palette[i%palette.length],from,to:offset};});
     const pie=slices.map(s=>`${s.color} ${s.from}% ${s.to}%`).join(",");
     const dateMap={};const categoryIds=new Set(rows.map(x=>x.id));
-    inventoryMovements.filter(m=>categoryIds.has(m.inventory_item_id)&&m.note!=="Registro o actualización de inventario inicial").forEach(m=>{const day=String(m.created_at).slice(0,10);dateMap[day]=(dateMap[day]||0)+Number(m.quantity_delta||0);});
+    inventoryMovements.filter(m=>categoryIds.has(m.inventory_item_id)&&m.note!=="Registro o actualización de inventario inicial"&&!String(m.note||"").startsWith("HISTÓRICO EN PORCIONES")).forEach(m=>{const day=String(m.created_at).slice(0,10);dateMap[day]=(dateMap[day]||0)+Number(m.quantity_delta||0);});
     const dayRows=Object.entries(dateMap).sort((a,b)=>a[0].localeCompare(b[0]));
     let running=totalCurrent-dayRows.reduce((s,x)=>s+x[1],0);
     const points=[{day:"Inventario inicial",value:Math.max(0,running)}];
@@ -468,13 +469,13 @@ async function submitOrder(e) {
     const W=680,H=230,pad=36,maxLine=Math.max(1,...series.map(x=>x.value)),coords=series.map((p,i)=>({x:pad+(series.length===1?(W-pad*2)/2:i*(W-pad*2)/(series.length-1)),y:H-pad-(p.value/maxLine)*(H-pad*2),...p}));
     const line=coords.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
     const area=line+` L ${coords[coords.length-1].x} ${H-pad} L ${coords[0].x} ${H-pad} Z`;
-    const trendSvg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de existencias de ${esc(category)}"><defs><linearGradient id="inventory-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#688c78" stop-opacity=".42"/><stop offset="100%" stop-color="#688c78" stop-opacity=".02"/></linearGradient></defs><path d="${area}" fill="url(#inventory-area-gradient)"/><path d="${line}" fill="none" stroke="#557b65" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${coords.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#557b65"><title>${p.day}: ${p.value} unidades disponibles</title></circle>`).join("")}<text x="${pad}" y="18" class="chart-axis-label">${maxLine.toLocaleString("es-CO")} ${esc(rows[0]?.unit||"unidades")}</text><text x="${pad}" y="${H-7}" class="chart-axis-label">${esc(series[0].day)}</text><text x="${W-pad}" y="${H-7}" text-anchor="end" class="chart-axis-label">${esc(series[series.length-1].day)}</text></svg>`;
+    const trendSvg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de existencias de ${esc(category)}"><defs><linearGradient id="inventory-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#688c78" stop-opacity=".42"/><stop offset="100%" stop-color="#688c78" stop-opacity=".02"/></linearGradient></defs><path d="${area}" fill="url(#inventory-area-gradient)"/><path d="${line}" fill="none" stroke="#557b65" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${coords.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#557b65"><title>${p.day}: ${kg(p.value)} ${esc(rows[0]?.unit||"unidades")} disponibles</title></circle>`).join("")}<text x="${pad}" y="18" class="chart-axis-label">${kg(maxLine)} ${esc(rows[0]?.unit||"unidades")}</text><text x="${pad}" y="${H-7}" class="chart-axis-label">${esc(series[0].day)}</text><text x="${W-pad}" y="${H-7}" text-anchor="end" class="chart-axis-label">${esc(series[series.length-1].day)}</text></svg>`;
     return `<section class="inventory-analytics-panel"><div class="inventory-analytics-heading"><div><p class="eyebrow">Análisis por referencia</p><h3>${esc(category)}</h3><p>Comparación de cantidades iniciales, ventas y existencias actuales</p></div><span class="inventory-live-label"><i></i> Datos en vivo</span></div>
-      <div class="inventory-chart-kpis"><div><span>Inventario inicial</span><strong>${totalInitial.toLocaleString("es-CO")}</strong></div><div><span>Unidades vendidas netas</span><strong>${totalSold.toLocaleString("es-CO")}</strong></div><div><span>Disponibles ahora</span><strong>${totalCurrent.toLocaleString("es-CO")}</strong></div></div>
+      <div class="inventory-chart-kpis"><div><span>Inventario inicial</span><strong>${kg(totalInitial)}</strong></div><div><span>${rows[0]?.unit==="kg"?"Kilos vendidos netos":"Unidades vendidas netas"}</span><strong>${kg(totalSold)}</strong></div><div><span>Disponibles ahora</span><strong>${kg(totalCurrent)}</strong></div></div>
       <div class="inventory-charts-grid"><article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Inicial vs. vendidas vs. disponibles</h4><p>Comparativo por referencia · ${esc(rows[0]?.unit||"unidades")}</p></div><div class="inventory-chart-scroll"><svg viewBox="0 0 ${chartWidth} 285" role="img" aria-label="Gráfico de columnas por referencia"><line x1="48" y1="235" x2="${chartWidth-12}" y2="235" stroke="#e8e2d8"/>${bars}</svg></div><div class="inventory-chart-legend"><span><i style="background:#c5a36a"></i>Inicial</span><span><i style="background:#668b75"></i>Vendidas netas</span><span><i style="background:#617fa6"></i>Disponibles</span></div></article>
       <article class="inventory-chart-card"><div class="inventory-chart-title"><h4>Composición del stock</h4><p>Participación de cada referencia disponible</p></div><div class="inventory-donut-wrap"><div class="inventory-donut" style="background:${totalCurrent?"conic-gradient("+pie+")":"#eee"}"><div><strong>${totalCurrent.toLocaleString("es-CO")}</strong><small>disponibles</small></div></div></div><div class="inventory-pie-legend">${slices.map(s=>`<div><i style="background:${s.color}"></i><span>${esc(s.item.name)}</span><strong>${s.pct.toFixed(1)}%</strong></div>`).join("")}</div></article>
       <article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Evolución de existencias</h4><p>Saldo de inventario reconstruido a partir de los movimientos registrados</p></div><div class="inventory-trend-chart">${trendSvg}</div><p class="inventory-chart-footnote">${dayRows.length?dayRows.length+" fechas con movimientos registrados.":"Aún no hay ventas ni ajustes históricos posteriores al registro inicial."} Las líneas se actualizan al registrar pedidos, cancelaciones o ajustes.</p></article></div>
-      <p class="inventory-chart-footnote">Las unidades vendidas netas corresponden a reservas por pedidos menos devoluciones por cancelación. Los ajustes manuales no se cuentan como ventas.</p>
+      <p class="inventory-chart-footnote">Las cantidades vendidas netas corresponden a reservas por pedidos menos devoluciones por cancelación. Los ajustes manuales no se cuentan como ventas.</p>
     </section>`;
   }
   async function saveInventoryStock(e){
