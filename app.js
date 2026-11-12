@@ -24,7 +24,7 @@
   ];
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
-  let statsPeriod = "all", inventoryItems = [], staffRealtimeChannel = null;
+  let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
   let toastTimer;
 
   function notify(message, error=false) {
