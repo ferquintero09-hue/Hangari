@@ -308,6 +308,7 @@ async function submitOrder(e) {
       .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders())
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"order_items"},()=>loadOrders())
       .on("postgres_changes",{event:"*",schema:"public",table:"inventory_items"},()=>{if(profile?.role==="admin")loadInventory();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"inventory_movements"},()=>{if(profile?.role==="admin")loadInventory();})
       .subscribe();
   }
   function showStore(){
@@ -403,22 +404,63 @@ async function submitOrder(e) {
   }
   async function loadInventory(){
     if(!db||profile?.role!=="admin")return;
-    const {data,error}=await db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name");
-    if(error){console.error(error);$("#inventory-content").innerHTML='<p class="empty-state">No fue posible consultar el inventario.</p>';return;}
-    inventoryItems=data||[];renderInventory();
+    const [{data,error},{data:movementData,error:movementError}]=await Promise.all([
+      db.from("inventory_items").select("id,name,category,unit,initial_stock,current_stock,is_configured,updated_at").order("category").order("name"),
+      db.from("inventory_movements").select("id,inventory_item_id,movement_type,quantity_delta,note,created_at,order_id").order("created_at",{ascending:true}).limit(2000)
+    ]);
+    if(error||movementError){console.error(error||movementError);$("#inventory-content").innerHTML='<p class="empty-state">No fue posible consultar el inventario y sus movimientos.</p>';return;}
+    inventoryItems=data||[];inventoryMovements=movementData||[];renderInventory();
   }
   function renderInventory(){
     if(profile?.role!=="admin")return;
     const categories=["Proteínas","Ensaladas","Guarniciones","Novenitas"],configured=inventoryItems.filter(x=>x.is_configured).length;
-    const cards=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category),initial=rows.reduce((s,x)=>s+Number(x.initial_stock||0),0),current=rows.reduce((s,x)=>s+Number(x.current_stock||0),0),mixed=category==="Novenitas";return `<article class="inventory-summary-card"><span>${esc(category)}</span><strong>${mixed?rows.filter(x=>x.is_configured&&Number(x.current_stock)>0).length:current.toLocaleString("es-CO")} <small>${mixed?"referencias con stock":esc(rows[0]?.unit||"")}</small></strong><small>${mixed?rows.length+" referencias": "Inicial: "+initial.toLocaleString("es-CO")+" · "+rows.length+" referencias"}</small></article>`;}).join("");
+    const cards=categories.map(category=>{
+      const rows=inventoryItems.filter(x=>x.category===category),initial=rows.reduce((s,x)=>s+Number(x.initial_stock||0),0),current=rows.reduce((s,x)=>s+Number(x.current_stock||0),0),mixed=category==="Novenitas",active=selectedInventoryCategory===category;
+      return `<button type="button" class="inventory-summary-card inventory-category-select ${active?"selected":""}" data-inventory-category="${esc(category)}" aria-pressed="${active}"><span>${esc(category)}</span><strong>${mixed?rows.filter(x=>x.is_configured&&Number(x.current_stock)>0).length:current.toLocaleString("es-CO")} <small>${mixed?"referencias con stock":esc(rows[0]?.unit||"")}</small></strong><small>${mixed?rows.length+" referencias":"Inicial: "+initial.toLocaleString("es-CO")+" · "+rows.length+" referencias"}</small><span class="inventory-card-hint">Ver análisis <span aria-hidden="true">→</span></span></button>`;
+    }).join("");
     const stockByName=Object.fromEntries(inventoryItems.map(x=>[x.name,Number(x.current_stock||0)]));
     const sumNames=names=>names.reduce((sum,name)=>sum+(stockByName[name]||0),0);
     const plate1=Math.min(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"]),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
     const plate2=Math.min(Math.floor(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu"])/2),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
     const plate3=Math.min(Math.floor(sumNames(["Capón relleno envuelto en tocineta","Medallones de cerdo","Pechuga Cordon Bleu","Lomo relleno","Pollo relleno"])/2),sumNames(["Ensalada rusa","Ensalada colombiana"]),sumNames(["Papa amarilla en cascos","Papa a la francesa","Pan navideño","Rapiyuca"]));
     const groups=categories.map(category=>{const rows=inventoryItems.filter(x=>x.category===category);return `<section class="inventory-category"><div class="inventory-category-heading"><h3>${esc(category)}</h3><span>${rows.filter(x=>x.is_configured).length}/${rows.length} configurados</span></div><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Producto</th><th>Unidad</th><th>Inventario inicial</th><th>Disponible</th><th>Actualizar existencia</th></tr></thead><tbody>${rows.map(item=>`<tr><td><strong>${esc(item.name)}</strong></td><td>${esc(item.unit)}</td><td>${item.is_configured?Number(item.initial_stock).toLocaleString("es-CO"):"—"}</td><td><strong class="${Number(item.current_stock)<=3?"inventory-low":""}">${item.is_configured?Number(item.current_stock).toLocaleString("es-CO"):"Sin registrar"}</strong></td><td><form class="inventory-update-form" data-inventory-form="${item.id}"><input name="quantity" type="number" min="0" step="1" required value="${item.is_configured?Number(item.current_stock):""}" placeholder="Cantidad"><input name="note" type="text" maxlength="120" placeholder="Motivo (opcional)"><button class="btn btn-outline btn-small" type="submit">Guardar</button></form></td></tr>`).join("")}</tbody></table></div></section>`;}).join("");
-    $("#inventory-content").innerHTML=`<div class="inventory-summary-grid">${cards}<article class="inventory-summary-card"><span>Platos preparados</span><strong>1: ${plate1} · 2: ${plate2} · 3: ${plate3}</strong><small>Capacidad estimada según proteínas, ensaladas y guarniciones disponibles</small></article></div><div class="inventory-progress-note">${configured} de ${inventoryItems.length} referencias tienen inventario inicial registrado. Los pedidos nuevos descuentan automáticamente porciones, unidades o combos. Los ajustes posteriores quedan registrados.</div>${groups}`;
+    $("#inventory-content").innerHTML=`<div class="inventory-summary-grid">${cards}<article class="inventory-summary-card"><span>Platos preparados</span><strong>1: ${plate1} · 2: ${plate2} · 3: ${plate3}</strong><small>Capacidad estimada según proteínas, ensaladas y guarniciones disponibles</small></article></div><div class="inventory-progress-note">${configured} de ${inventoryItems.length} referencias tienen inventario inicial registrado. Los pedidos nuevos descuentan automáticamente porciones, unidades o combos. Los ajustes posteriores quedan registrados.</div><div id="inventory-analytics">${renderInventoryAnalytics(selectedInventoryCategory)}</div>${groups}`;
     $("#inventory-content").querySelectorAll("[data-inventory-form]").forEach(form=>form.addEventListener("submit",saveInventoryStock));
+    $("#inventory-content").querySelectorAll("[data-inventory-category]").forEach(button=>button.addEventListener("click",()=>{selectedInventoryCategory=button.dataset.inventoryCategory;renderInventory();}));
+  }
+  function renderInventoryAnalytics(category){
+    const rows=inventoryItems.filter(x=>x.category===category),palette=["#b88b45","#557b65","#607da7","#bb765d","#8872a5","#6c9b9b","#c49c63","#87915b"];
+    if(!rows.length)return '<p class="empty-state">No hay referencias para esta categoría.</p>';
+    const metrics=rows.map(item=>{
+      const movements=inventoryMovements.filter(m=>m.inventory_item_id===item.id),reserved=movements.filter(m=>m.movement_type==="reserve").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),released=movements.filter(m=>m.movement_type==="release").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),sold=Math.max(0,reserved-released);
+      return {...item,initial:Number(item.initial_stock||0),current:Number(item.current_stock||0),sold,reserved,released};
+    });
+    const max=Math.max(1,...metrics.map(x=>Math.max(x.initial,x.sold,x.current))),chartWidth=Math.max(680,metrics.length*138),barW=22;
+    const bars=metrics.map((item,i)=>{
+      const x=68+i*138,base=235,scale=155/max;
+      const vals=[{key:"Inicial",value:item.initial,color:"#c5a36a"},{key:"Vendidas",value:item.sold,color:"#668b75"},{key:"Disponibles",value:item.current,color:"#617fa6"}];
+      return vals.map((v,j)=>{const bh=v.value*scale,bx=x+j*27,by=base-bh;return `<rect x="${bx}" y="${by}" width="${barW}" height="${Math.max(1,bh)}" rx="5" fill="${v.color}"><title>${esc(item.name)} · ${v.key}: ${v.value} ${esc(item.unit)}</title></rect><text x="${bx+barW/2}" y="${Math.max(16,by-7)}" text-anchor="middle" class="chart-value">${v.value}</text>`;}).join("")+`<text x="${x+40}" y="258" text-anchor="middle" class="chart-label">${esc(item.name.length>18?item.name.slice(0,16)+"…":item.name)}</text>`;
+    }).join("");
+    const totalCurrent=metrics.reduce((s,x)=>s+x.current,0),totalInitial=metrics.reduce((s,x)=>s+x.initial,0),totalSold=metrics.reduce((s,x)=>s+x.sold,0);
+    let offset=0;const slices=metrics.map((item,i)=>{const pct=totalCurrent?item.current/totalCurrent*100:0,from=offset;offset+=pct;return {item,pct,color:palette[i%palette.length],from,to:offset};});
+    const pie=slices.map(s=>`${s.color} ${s.from}% ${s.to}%`).join(",");
+    const dateMap={};const categoryIds=new Set(rows.map(x=>x.id));
+    inventoryMovements.filter(m=>categoryIds.has(m.inventory_item_id)).forEach(m=>{const day=String(m.created_at).slice(0,10);dateMap[day]=(dateMap[day]||0)+Number(m.quantity_delta||0);});
+    const dayRows=Object.entries(dateMap).sort((a,b)=>a[0].localeCompare(b[0]));
+    let running=totalCurrent-dayRows.reduce((s,x)=>s+x[1],0);
+    const points=dayRows.map(([day,delta])=>{running+=delta;return {day,value:Math.max(0,running)};});
+    const series=points.length?points:[{day:"Sin movimientos",value:totalCurrent}];
+    const W=680,H=230,pad=36,maxLine=Math.max(1,...series.map(x=>x.value)),coords=series.map((p,i)=>({x:pad+(series.length===1?(W-pad*2)/2:i*(W-pad*2)/(series.length-1)),y:H-pad-(p.value/maxLine)*(H-pad*2),...p}));
+    const line=coords.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
+    const area=line+` L ${coords[coords.length-1].x} ${H-pad} L ${coords[0].x} ${H-pad} Z`;
+    const trendSvg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de existencias de ${esc(category)}"><defs><linearGradient id="inventory-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#688c78" stop-opacity=".42"/><stop offset="100%" stop-color="#688c78" stop-opacity=".02"/></linearGradient></defs><path d="${area}" fill="url(#inventory-area-gradient)"/><path d="${line}" fill="none" stroke="#557b65" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${coords.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#557b65"><title>${p.day}: ${p.value} unidades disponibles</title></circle>`).join("")}<text x="${pad}" y="18" class="chart-axis-label">${maxLine.toLocaleString("es-CO")} ${esc(rows[0]?.unit||"unidades")}</text><text x="${pad}" y="${H-7}" class="chart-axis-label">${esc(series[0].day)}</text><text x="${W-pad}" y="${H-7}" text-anchor="end" class="chart-axis-label">${esc(series[series.length-1].day)}</text></svg>`;
+    return `<section class="inventory-analytics-panel"><div class="inventory-analytics-heading"><div><p class="eyebrow">Análisis por referencia</p><h3>${esc(category)}</h3><p>Comparación de cantidades iniciales, ventas y existencias actuales</p></div><span class="inventory-live-label"><i></i> Datos en vivo</span></div>
+      <div class="inventory-chart-kpis"><div><span>Inventario inicial</span><strong>${totalInitial.toLocaleString("es-CO")}</strong></div><div><span>Unidades vendidas netas</span><strong>${totalSold.toLocaleString("es-CO")}</strong></div><div><span>Disponibles ahora</span><strong>${totalCurrent.toLocaleString("es-CO")}</strong></div></div>
+      <div class="inventory-charts-grid"><article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Inicial vs. vendidas vs. disponibles</h4><p>Comparativo por referencia · ${esc(rows[0]?.unit||"unidades")}</p></div><div class="inventory-chart-scroll"><svg viewBox="0 0 ${chartWidth} 285" role="img" aria-label="Gráfico de columnas por referencia"><line x1="48" y1="235" x2="${chartWidth-12}" y2="235" stroke="#e8e2d8"/>${bars}</svg></div><div class="inventory-chart-legend"><span><i style="background:#c5a36a"></i>Inicial</span><span><i style="background:#668b75"></i>Vendidas netas</span><span><i style="background:#617fa6"></i>Disponibles</span></div></article>
+      <article class="inventory-chart-card"><div class="inventory-chart-title"><h4>Composición del stock</h4><p>Participación de cada referencia disponible</p></div><div class="inventory-donut-wrap"><div class="inventory-donut" style="background:${totalCurrent?"conic-gradient("+pie+")":"#eee"}"><div><strong>${totalCurrent.toLocaleString("es-CO")}</strong><small>disponibles</small></div></div></div><div class="inventory-pie-legend">${slices.map(s=>`<div><i style="background:${s.color}"></i><span>${esc(s.item.name)}</span><strong>${s.pct.toFixed(1)}%</strong></div>`).join("")}</div></article>
+      <article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Evolución de existencias</h4><p>Saldo de inventario reconstruido a partir de los movimientos registrados</p></div><div class="inventory-trend-chart">${trendSvg}</div><p class="inventory-chart-footnote">${dayRows.length?dayRows.length+" fechas con movimientos registrados.":"Aún no hay ventas ni ajustes históricos posteriores al registro inicial."} Las líneas se actualizan al registrar pedidos, cancelaciones o ajustes.</p></article></div>
+      <p class="inventory-chart-footnote">Las unidades vendidas netas corresponden a reservas por pedidos menos devoluciones por cancelación. Los ajustes manuales no se cuentan como ventas.</p>
+    </section>`;
   }
   async function saveInventoryStock(e){
     e.preventDefault();if(profile?.role!=="admin")return;
