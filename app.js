@@ -36,7 +36,8 @@
   }
   function openModal(id){ $("#"+id).classList.remove("hidden"); }
   function closeModal(id){ $("#"+id).classList.add("hidden"); }
-  function total(){ return cart.reduce((s,x)=>s+x.price*x.quantity,0); }
+  function lineTotal(x){return Math.round(x.price*x.quantity)+(x.weighted && x.quantity%1===0.5?5000:0);}
+  function total(){ return cart.reduce((s,x)=>s+lineTotal(x),0); }
   function productImage(p){
     const src = String(p.image_url || p.image || "").trim();
     if (!src) return PRODUCT_IMG_PLACEHOLDER;
@@ -71,7 +72,7 @@
           <span class="photo-hint">Ver fotografías <span aria-hidden="true">↗</span></span>
         </button>
         <div class="product-info"><div><h3>${esc(p.name)}</h3><p>${esc(p.description||"Preparado para compartir.")}</p></div>
-          <div class="product-buy"><div><strong>${money(unitPrice(p))}</strong><small>${isWeightProduct(p)?"por kg · "+esc(p.unit||""):esc(p.unit||"")}</small></div>
+          <div class="product-buy"><div><strong>${money(unitPrice(p))}</strong><small>${isWeightProduct(p)?"por kg · "+esc(p.unit||"")+" · Fracción de 0,5 kg: +$5.000":esc(p.unit||"")}</small></div>
           <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
         </div>
       </article>`).join(""):'<p class="empty-state">Pronto tendremos productos en esta categoría.</p>';
@@ -205,7 +206,7 @@
     $("#cart-count").textContent=cart.length;
     $("#cart-total").textContent=money(total());$("#checkout-total").textContent=money(total());
     $("#checkout-open").disabled=!cart.length;
-    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+(x.weighted?' por kg':' c/u')+'</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+kg(x.quantity)+(x.weighted?' kg':'')+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(x.price*x.quantity)+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
+    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+(x.weighted?' por kg · +$5.000 si hay medio kilo adicional':' c/u')+'</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+kg(x.quantity)+(x.weighted?' kg':'')+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(lineTotal(x))+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
     document.querySelectorAll("[data-qty]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.qty,Number(b.dataset.delta))));
   }
   function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
@@ -324,7 +325,7 @@ async function submitOrder(e) {
   async function loadOrders() {
     if(!db||!profile)return;
     $("#orders-list").innerHTML='<div class="loading">Actualizando pedidos…</div>';
-    let q=db.from("orders").select("*,delivery_profile:profiles!orders_delivery_user_id_fkey(full_name),order_items(id,quantity,unit_price,product_name,options,product:products(category))").order("created_at",{ascending:false});
+    let q=db.from("orders").select("*,delivery_profile:profiles!orders_delivery_user_id_fkey(full_name),order_items(id,quantity,unit_price,line_total,product_name,options,product:products(category))").order("created_at",{ascending:false});
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
@@ -392,7 +393,7 @@ async function submitOrder(e) {
     const driverMap={};assigned.forEach(o=>{const n=o.delivery_profile?.full_name||"Domiciliario sin nombre";driverMap[n]=(driverMap[n]||0)+1;});
     const drivers=Object.entries(driverMap).sort((x,y)=>y[1]-x[1]),maxPayment=Math.max(1,...paymentRows.map(x=>x.total)),maxDriver=Math.max(1,...drivers.map(x=>x[1]));
     const productMap={},categoryMap={},dayMap={};
-    activeOrders.forEach(o=>{const day=dateInBogota(o.created_at);dayMap[day]=(dayMap[day]||0)+Number(o.total||0);(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto",cat=i.product?.category||"Otros",qty=Number(i.quantity||0),value=qty*Number(i.unit_price||0);if(!productMap[n])productMap[n]={quantity:0,total:0,unit:i.options?.sale_unit==="kg"?"kg":"uds."};productMap[n].quantity+=qty;productMap[n].total+=value;categoryMap[cat]=(categoryMap[cat]||0)+value;});});
+    activeOrders.forEach(o=>{const day=dateInBogota(o.created_at);dayMap[day]=(dayMap[day]||0)+Number(o.total||0);(o.order_items||[]).forEach(i=>{const n=i.product_name||"Producto",cat=i.product?.category||"Otros",qty=Number(i.quantity||0),value=Number(i.line_total??(qty*Number(i.unit_price||0)));if(!productMap[n])productMap[n]={quantity:0,total:0,unit:i.options?.sale_unit==="kg"?"kg":"uds."};productMap[n].quantity+=qty;productMap[n].total+=value;categoryMap[cat]=(categoryMap[cat]||0)+value;});});
     const topProducts=Object.entries(productMap).sort((x,y)=>y[1].quantity-x[1].quantity).slice(0,8),categories=["Proteínas","Ensaladas","Platos","Novenitas"];
     const categoryRows=categories.map(name=>({name,total:categoryMap[name]||0})).filter(x=>x.total>0),maxCategory=Math.max(1,...categoryRows.map(x=>x.total));
     const days=Object.entries(dayMap).sort((x,y)=>x[0].localeCompare(y[0])).slice(-10),maxDay=Math.max(1,...days.map(x=>x[1]));
@@ -450,9 +451,9 @@ async function submitOrder(e) {
       const movements=inventoryMovements.filter(m=>m.inventory_item_id===item.id&&!String(m.note||"").startsWith("HISTÓRICO EN PORCIONES")),reserved=movements.filter(m=>m.movement_type==="reserve").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),released=movements.filter(m=>m.movement_type==="release").reduce((s,m)=>s+Math.abs(Number(m.quantity_delta)),0),sold=Math.max(0,reserved-released);
       return {...item,initial:Number(item.initial_stock||0),current:Number(item.current_stock||0),sold,reserved,released};
     });
-    const max=Math.max(1,...metrics.map(x=>Math.max(x.initial,x.sold,x.current))),chartWidth=Math.max(680,metrics.length*138),barW=22;
+    const max=Math.max(1,...metrics.map(x=>Math.max(x.initial,x.sold,x.current))),chartWidth=Math.max(720,metrics.length*150+95),barW=22;
     const bars=metrics.map((item,i)=>{
-      const x=68+i*138,base=235,scale=155/max;
+      const x=68+i*150,base=235,scale=155/max;
       const vals=[{key:"Inicial",value:item.initial,color:"#c5a36a"},{key:"Vendidas",value:item.sold,color:"#668b75"},{key:"Disponibles",value:item.current,color:"#617fa6"}];
       return vals.map((v,j)=>{const bh=v.value*scale,bx=x+j*27,by=base-bh;return `<rect x="${bx}" y="${by}" width="${barW}" height="${Math.max(1,bh)}" rx="5" fill="${v.color}"><title>${esc(item.name)} · ${v.key}: ${v.value} ${esc(item.unit)}</title></rect><text x="${bx+barW/2}" y="${Math.max(16,by-7)}" text-anchor="middle" class="chart-value">${kg(v.value)}</text>`;}).join("")+`<text x="${x+40}" y="258" text-anchor="middle" class="chart-label">${esc(item.name.length>18?item.name.slice(0,16)+"…":item.name)}</text>`;
     }).join("");
@@ -472,7 +473,7 @@ async function submitOrder(e) {
     const trendSvg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de existencias de ${esc(category)}"><defs><linearGradient id="inventory-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#688c78" stop-opacity=".42"/><stop offset="100%" stop-color="#688c78" stop-opacity=".02"/></linearGradient></defs><path d="${area}" fill="url(#inventory-area-gradient)"/><path d="${line}" fill="none" stroke="#557b65" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${coords.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#557b65"><title>${p.day}: ${kg(p.value)} ${esc(rows[0]?.unit||"unidades")} disponibles</title></circle>`).join("")}<text x="${pad}" y="18" class="chart-axis-label">${kg(maxLine)} ${esc(rows[0]?.unit||"unidades")}</text><text x="${pad}" y="${H-7}" class="chart-axis-label">${esc(series[0].day)}</text><text x="${W-pad}" y="${H-7}" text-anchor="end" class="chart-axis-label">${esc(series[series.length-1].day)}</text></svg>`;
     return `<section class="inventory-analytics-panel"><div class="inventory-analytics-heading"><div><p class="eyebrow">Análisis por referencia</p><h3>${esc(category)}</h3><p>Comparación de cantidades iniciales, ventas y existencias actuales</p></div><span class="inventory-live-label"><i></i> Datos en vivo</span></div>
       <div class="inventory-chart-kpis"><div><span>Inventario inicial</span><strong>${kg(totalInitial)}</strong></div><div><span>${rows[0]?.unit==="kg"?"Kilos vendidos netos":"Unidades vendidas netas"}</span><strong>${kg(totalSold)}</strong></div><div><span>Disponibles ahora</span><strong>${kg(totalCurrent)}</strong></div></div>
-      <div class="inventory-charts-grid"><article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Inicial vs. vendidas vs. disponibles</h4><p>Comparativo por referencia · ${esc(rows[0]?.unit||"unidades")}</p></div><div class="inventory-chart-scroll"><svg viewBox="0 0 ${chartWidth} 285" role="img" aria-label="Gráfico de columnas por referencia"><line x1="48" y1="235" x2="${chartWidth-12}" y2="235" stroke="#e8e2d8"/>${bars}</svg></div><div class="inventory-chart-legend"><span><i style="background:#c5a36a"></i>Inicial</span><span><i style="background:#668b75"></i>Vendidas netas</span><span><i style="background:#617fa6"></i>Disponibles</span></div></article>
+      <div class="inventory-charts-grid"><article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Inicial vs. vendidas vs. disponibles</h4><p>Comparativo por referencia · ${esc(rows[0]?.unit||"unidades")}</p></div><div class="inventory-chart-scroll"><svg width="${chartWidth}" height="285" viewBox="0 0 ${chartWidth} 285" role="img" aria-label="Gráfico de columnas por referencia"><line x1="48" y1="235" x2="${chartWidth-12}" y2="235" stroke="#e8e2d8"/>${bars}</svg></div><div class="inventory-chart-legend"><span><i style="background:#c5a36a"></i>Inicial</span><span><i style="background:#668b75"></i>Vendidas netas</span><span><i style="background:#617fa6"></i>Disponibles</span></div></article>
       <article class="inventory-chart-card"><div class="inventory-chart-title"><h4>Composición del stock</h4><p>Participación de cada referencia disponible</p></div><div class="inventory-donut-wrap"><div class="inventory-donut" style="background:${totalCurrent?"conic-gradient("+pie+")":"#eee"}"><div><strong>${totalCurrent.toLocaleString("es-CO")}</strong><small>disponibles</small></div></div></div><div class="inventory-pie-legend">${slices.map(s=>`<div><i style="background:${s.color}"></i><span>${esc(s.item.name)}</span><strong>${s.pct.toFixed(1)}%</strong></div>`).join("")}</div></article>
       <article class="inventory-chart-card inventory-chart-wide"><div class="inventory-chart-title"><h4>Evolución de existencias</h4><p>Saldo de inventario reconstruido a partir de los movimientos registrados</p></div><div class="inventory-trend-chart">${trendSvg}</div><p class="inventory-chart-footnote">${dayRows.length?dayRows.length+" fechas con movimientos registrados.":"Aún no hay ventas ni ajustes históricos posteriores al registro inicial."} Las líneas se actualizan al registrar pedidos, cancelaciones o ajustes.</p></article></div>
       <p class="inventory-chart-footnote">Las cantidades vendidas netas corresponden a reservas por pedidos menos devoluciones por cancelación. Los ajustes manuales no se cuentan como ventas.</p>
