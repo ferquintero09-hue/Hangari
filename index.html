@@ -133,6 +133,7 @@
         <button class="staff-nav-button active" type="button" data-staff-view="orders"><span>▤</span> Pedidos</button>
         <button class="staff-nav-button" type="button" data-staff-view="statistics"><span>▥</span> Estadísticas</button>
         <button class="staff-nav-button" type="button" data-staff-view="inventory"><span>▦</span> Inventario</button>
+        <button class="staff-nav-button" type="button" data-staff-view="sellers"><span>♧</span> Vendedores</button>
       </nav>
       <section id="orders-view">
       <div class="stats-grid" id="stats-grid"></div>
@@ -161,6 +162,22 @@
         </div>
         <div id="statistics-content"><div class="loading">Calculando estadísticas…</div></div>
       </section>
+      <section id="sellers-view" class="sellers-view hidden" aria-label="Gestión y estadísticas de vendedores">
+        <div class="statistics-heading">
+          <div><p class="eyebrow">Equipo comercial</p><h2>Vendedores y resultados</h2><p>Registra vendedores, revisa sus pedidos, productos vendidos y dinero efectivamente recaudado.</p></div>
+          <button class="btn btn-outline" id="refresh-sellers" type="button">↻ Actualizar vendedores</button>
+        </div>
+        <div class="seller-management">
+          <div><h3>Registrar un vendedor</h3><p>El cliente podrá elegirlo en el formulario del pedido. Hangari seguirá siendo la opción predeterminada.</p></div>
+          <form id="seller-create-form" class="seller-create-form">
+            <label for="seller-name-input">Nombre completo del vendedor</label>
+            <div class="seller-create-row"><input id="seller-name-input" name="name" minlength="2" maxlength="120" required placeholder="Nombre del vendedor" autocomplete="off">
+              <button type="submit" class="btn btn-primary">Agregar vendedor</button></div>
+          </form>
+          <div id="seller-admin-list" class="seller-admin-list" aria-live="polite"></div>
+        </div>
+        <div id="sellers-analytics" aria-live="polite"><div class="loading">Preparando estadísticas de vendedores…</div></div>
+      </section>
       <section id="inventory-view" class="inventory-view hidden" aria-label="Control de inventario">
         <div class="statistics-heading"><div><p class="eyebrow">Existencias y disponibilidad</p><h2>Control de inventario</h2><p>Registra cantidades iniciales y ajusta las existencias físicas de cada referencia.</p></div><button class="btn btn-outline" id="refresh-inventory" type="button">↻ Actualizar inventario</button></div>
         <div id="inventory-content"><div class="loading">Consultando inventario…</div></div>
@@ -188,13 +205,27 @@
         <label>Celular<input name="phone" required maxlength="30" inputmode="tel" placeholder="Ej. 300 123 4567"></label>
         <label class="span-2">Dirección de entrega<input name="address" required maxlength="250" placeholder="Dirección, barrio y referencias"></label>
         <label>Fecha de entrega<input name="delivery_date" type="date" required></label>
-        <label>Vendedor <span class="optional">(opcional)</span><input name="seller" maxlength="120" placeholder="¿Quién te atendió?"></label>
+        <label>Vendedor <span class="optional">(si alguien te atendió)</span><select name="seller" id="checkout-seller" required><option value="Hangari" selected>Hangari</option></select></label>
         <label class="span-2">Medio de pago
           <select name="payment_method" required><option value="">Selecciona una opción</option><option value="Transferencia">Transferencia</option><option value="Efectivo">Efectivo</option><option value="Datáfono">Datáfono</option><option value="Otro">Otro / por acordar</option></select>
         </label>
         <div class="checkout-summary span-2"><span>Total de tu pedido</span><strong id="checkout-total">$0</strong></div>
         <button class="btn btn-primary btn-full span-2" type="submit" id="submit-order">Registrar pedido</button>
         <p class="tiny-note span-2">Al registrar, autorizas a Hangari a contactarte para confirmar los detalles de tu pedido.</p>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop hidden" id="seller-change-modal">
+    <section class="modal seller-change-modal" role="dialog" aria-modal="true" aria-label="Cambiar vendedor del pedido">
+      <button class="icon-button modal-close" type="button" data-close="seller-change-modal" aria-label="Cerrar">×</button>
+      <p class="eyebrow">Asignación comercial</p>
+      <h2>Corregir vendedor</h2>
+      <p class="seller-modal-note">El cambio actualizará las estadísticas de ventas y recaudos de ambos vendedores. No modifica el valor del pedido ni su estado de pago.</p>
+      <form id="seller-change-form" class="form-grid">
+        <input type="hidden" name="order_id">
+        <label class="span-2">Vendedor responsable<select name="seller" required id="order-seller-select"></select></label>
+        <button type="submit" class="btn btn-primary btn-full span-2">Guardar vendedor</button>
       </form>
     </section>
   </div>
