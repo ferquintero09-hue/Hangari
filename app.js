@@ -429,9 +429,9 @@ async function submitOrder(e) {
     $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
     $("#team-management").classList.toggle("hidden",prof.role!=="admin");
     $("#admin-navigation").classList.toggle("hidden",prof.role!=="admin");
-    $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");$("#inventory-view").classList.add("hidden");
+    $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");$("#inventory-view").classList.add("hidden");$("#sellers-view").classList.add("hidden");
     document.querySelectorAll("[data-staff-view]").forEach(b=>b.classList.toggle("active",b.dataset.staffView==="orders"));
-    if(prof.role==="admin"){await loadDeliveryTeam();await loadInventory();}
+    if(prof.role==="admin"){await loadDeliveryTeam();await loadSellers();await loadInventory();}
     await loadOrders();
     if(staffRealtimeChannel)db.removeChannel(staffRealtimeChannel);
     staffRealtimeChannel=db.channel("hangari-staff-live")
@@ -439,13 +439,14 @@ async function submitOrder(e) {
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"order_items"},()=>loadOrders())
       .on("postgres_changes",{event:"*",schema:"public",table:"inventory_items"},()=>{if(profile?.role==="admin")loadInventory();})
       .on("postgres_changes",{event:"*",schema:"public",table:"inventory_movements"},()=>{if(profile?.role==="admin")loadInventory();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"sellers"},()=>loadSellers())
       .subscribe();
   }
   function showStore(){
     if(staffRealtimeChannel&&db){db.removeChannel(staffRealtimeChannel);staffRealtimeChannel=null;}
     $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");
     $(".site-header").classList.remove("hidden");$(".site-footer").classList.remove("hidden");
-    currentUser=null;profile=null;orders=[];orderFilter="Todos";
+    currentUser=null;profile=null;orders=[];orderFilter="Todos";loadSellers();
   }
   async function loadOrders() {
     if(!db||!profile)return;
@@ -454,7 +455,7 @@ async function submitOrder(e) {
     if(profile.role==="delivery")q=q.eq("delivery_user_id",currentUser.id);
     const {data,error}=await q;
     if(error){console.error(error);$("#orders-list").innerHTML='<p class="empty-state">No fue posible consultar los pedidos.</p>';return;}
-    orders=data||[]; renderDashboard();if(profile.role==="admin"&&!$("#inventory-view").classList.contains("hidden"))renderInventory();
+    orders=data||[]; renderDashboard();if(profile.role==="admin"&&!$("#inventory-view").classList.contains("hidden"))renderInventory();if(profile.role==="admin"&&!$("#sellers-view").classList.contains("hidden"))renderSellerAnalytics();
   }
   function renderDashboard() {
     const pending=orders.filter(o=>o.status==="Pendiente").length;
@@ -467,6 +468,7 @@ async function submitOrder(e) {
     document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
     document.querySelectorAll("[data-assign-order]").forEach(b=>b.addEventListener("click",()=>{const orderId=b.getAttribute("data-assign-order");if(!orderId||orderId==="undefined"){notify("No se pudo identificar el pedido. Actualiza el panel e inténtalo de nuevo.",true);console.error("ID de pedido ausente en botón de asignación",b);return;}assignDelivery(orderId);}));
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
+    document.querySelectorAll("[data-edit-seller]").forEach(b=>b.addEventListener("click",()=>openSellerChange(b.dataset.editSeller)));
   }
   function orderCard(o) {
     const items=(o.order_items||[]).map(i=>`${i.options?.sale_unit==="kg"?kg(i.quantity)+" kg":kg(i.quantity)+" ×"} ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
@@ -477,6 +479,7 @@ async function submitOrder(e) {
       actions=`<div class="order-actions">
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
         <button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>
+         <button class="btn btn-outline btn-small" data-edit-seller="${o.id}">Cambiar vendedor</button>
         ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">Asignar domiciliario</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
@@ -486,7 +489,7 @@ async function submitOrder(e) {
     }
     const paymentDetail=o.payment_status==="Pagado"?`Pagado · ${esc(o.confirmed_payment_method||"Medio por clasificar")}`:"Pendiente de recaudo";
     return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span></div><strong>${money(o.total)}</strong></div>
-      <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · ${esc(o.seller||"Sin vendedor")}</span></div></div>
+      <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · Vendedor: ${esc(o.seller||"Hangari")}</span></div></div>
       ${deliveryName?`<div class="assigned-delivery"><span class="assigned-delivery-icon">♧</span><div><small>DOMICILIARIO ASIGNADO</small><strong>${esc(deliveryName)}</strong></div></div>`:""}
       <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>${actions}</article>`;
   }
@@ -698,7 +701,7 @@ async function submitOrder(e) {
   $("#category-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(!b)return;document.querySelectorAll("[data-category]").forEach(x=>x.classList.toggle("active",x===b));renderProducts(b.dataset.category);});
   $("#cart-open").addEventListener("click",showCart);$("#banner-cart").addEventListener("click",showCart);
   $("#cart-close").addEventListener("click",hideCart);$("#cart-overlay").addEventListener("click",hideCart);
-  $("#checkout-open").addEventListener("click",()=>{hideCart();openModal("checkout-modal");$("#checkout-total").textContent=money(total());});
+  $("#checkout-open").addEventListener("click",()=>{hideCart();openModal("checkout-modal");$("#checkout-total").textContent=money(total());loadSellers();});
   $("#checkout-form").addEventListener("submit",submitOrder);
   $("#success-back-to-store").addEventListener("click",closeOrderSuccess);
   $("#order-success").addEventListener("click",e=>{if(e.target===$("#order-success"))closeOrderSuccess();});
@@ -709,12 +712,19 @@ async function submitOrder(e) {
   $("#back-to-store").addEventListener("click",e=>{e.preventDefault();showStore();});
   $("#refresh-orders").addEventListener("click",loadOrders);
   $("#refresh-inventory").addEventListener("click",loadInventory);
+  $("#refresh-sellers").addEventListener("click",async()=>{await loadSellers();await loadOrders();});
+  $("#seller-create-form").addEventListener("submit",createSeller);
+  $("#seller-admin-list").addEventListener("click",e=>{const b=e.target.closest("[data-seller-toggle]");if(b)toggleSeller(b.dataset.sellerToggle);});
+  $("#seller-change-form").addEventListener("submit",changeOrderSeller);
+  $("#seller-period").addEventListener("change",e=>{sellerStatsPeriod=e.target.value;renderSellerAnalytics();});
+  $("#sellers-analytics").addEventListener("click",e=>{const b=e.target.closest("[data-seller-metric]");if(b){sellerChartMetric=b.dataset.sellerMetric;renderSellerAnalytics();}});
+
   $("#orders-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(!b)return;orderFilter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderDashboard();});
-  $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");$("#inventory-view").classList.toggle("hidden",view!=="inventory");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":view==="inventory"?"Control de inventario":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view!=="orders");if(view==="statistics")renderStatistics();if(view==="inventory")loadInventory();});
+  $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");$("#inventory-view").classList.toggle("hidden",view!=="inventory");$("#sellers-view").classList.toggle("hidden",view!=="sellers");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":view==="inventory"?"Control de inventario":view==="sellers"?"Gestión de vendedores":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view!=="orders");if(view==="statistics")renderStatistics();if(view==="inventory")loadInventory();if(view==="sellers"){loadSellers();renderSellerAnalytics();}});
   $("#stats-period").addEventListener("change",e=>{statsPeriod=e.target.value;$("#stats-custom-dates").classList.toggle("hidden",statsPeriod!=="custom");renderStatistics();});
   ["stats-from","stats-to"].forEach(id=>$("#"+id).addEventListener("change",renderStatistics));
   $("#year").textContent=new Date().getFullYear();
   const minDate=new Date();minDate.setMinutes(minDate.getMinutes()-minDate.getTimezoneOffset());$("#checkout-form [name=delivery_date]").min=minDate.toISOString().slice(0,10);
-  renderCart();loadProducts();
+  renderCart();loadProducts();loadSellers();
   if(db)db.auth.getSession().then(({data})=>{if(data.session)loadStaff();});
 })();
