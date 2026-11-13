@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261112-demo-dashboard1">
+  <link rel="stylesheet" href="styles.css?v=20261113-catalog-v1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -78,6 +78,17 @@
           <button class="category-tab" data-category="Ensaladas">Ensaladas</button>
           <button class="category-tab" data-category="Platos">Platos</button>
           <button class="category-tab" data-category="Novenitas">Novenitas</button>
+        </div>
+        <div class="catalog-pdf-toolbar">
+          <div class="catalog-pdf-copy">
+            <strong>El menú de Navidad, en tus manos</strong>
+            <span>Descarga nuestro catálogo con fotografías, preparaciones y precios vigentes.</span>
+          </div>
+          <div class="catalog-pdf-actions">
+            <button class="btn btn-outline" id="download-catalog-pdf" type="button" aria-describedby="catalog-pdf-status">↓ Descargar catálogo PDF</button>
+            <button class="btn btn-primary" id="share-catalog-pdf" type="button" hidden>Compartir PDF</button>
+          </div>
+          <span class="catalog-pdf-status" id="catalog-pdf-status" role="status" aria-live="polite"></span>
         </div>
         <div class="product-grid" id="product-grid">
           <div class="loading">Preparando nuestro menú…</div>
@@ -224,7 +235,8 @@
     });
   </script>
   <script src="config.js"></script>
-  <script src="app.js?v=20261113-cart-price-label2"></script>
+  <script src="catalog-pdf.js?v=20261113-catalog-v1"></script>
+  <script src="app.js?v=20261113-catalog-v1"></script>
 
   <script>
     (function(){
