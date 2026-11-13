@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261113-catalog-v1">
+  <link rel="stylesheet" href="styles.css?v=20261113-hangari-brand1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -18,7 +18,7 @@
   <div class="garland" aria-hidden="true"><span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span></div>
   <header class="site-header">
     <a class="brand" href="#" aria-label="Hangari inicio">
-      <img class="brand-logo" src="img/logo-color.png" alt="Logo de Hangary">
+      <img class="brand-logo" src="img/logo-color.png" alt="Logo de Hangari">
       <span><strong>Hangari</strong><small>Navidad para compartir</small></span>
     </a>
     <nav class="main-nav" aria-label="Principal">
@@ -108,7 +108,7 @@
         <button class="whatsapp-close" id="whatsapp-close" type="button" aria-label="Cerrar">×</button>
         <p class="whatsapp-title">¡Hablemos!</p>
         <p class="whatsapp-description">Escanea el código desde tu celular y escríbenos.</p>
-        <img class="whatsapp-qr" src="img/qr-whatsapp.jpg" alt="Código QR para abrir el chat de WhatsApp de Hangary">
+        <img class="whatsapp-qr" src="img/qr-whatsapp.jpg" alt="Código QR para abrir el chat de WhatsApp de Hangari">
         <p class="whatsapp-qr-caption">Escanea para iniciar una conversación</p>
         <a class="whatsapp-chat-link" href="https://wa.me/message/HGBG62DYCRBON1" target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5A11.8 11.8 0 0 0 2 17.7L.5 23.5l6-1.6A11.8 11.8 0 0 0 23.5 11a11.7 11.7 0 0 0-3-7.5ZM12 21a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.5.9.9-3.4-.2-.4A9.8 9.8 0 1 1 12 21Zm5.4-7.3c-.3-.2-1.7-.9-2-.9s-.5-.2-.7.2-.8.9-1 1.1-.4.2-.7.1a8 8 0 0 1-2.4-1.5 9 9 0 0 1-1.7-2.1c-.2-.3 0-.5.2-.7l.5-.6.2-.5-.1-.5c-.1-.2-.7-1.6-1-2.1-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.4 1 2.8 1.2 3c.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4s-.2-.2-.5-.4Z"/></svg>
@@ -153,7 +153,7 @@
       </section>
       <section id="statistics-view" class="statistics-view hidden" aria-label="Estadísticas y ventas">
         <div class="statistics-heading">
-          <div><p class="eyebrow">Indicadores del negocio</p><h2>Ventas y recaudos</h2><p>Consulta el comportamiento de Hangary y el movimiento de los domicilios.</p></div>
+          <div><p class="eyebrow">Indicadores del negocio</p><h2>Ventas y recaudos</h2><p>Consulta el comportamiento de Hangari y el movimiento de los domicilios.</p></div>
           <div class="statistics-filters">
             <label>Periodo<select id="stats-period"><option value="all">Todo el periodo</option><option value="today">Hoy</option><option value="7days">Últimos 7 días</option><option value="month">Este mes</option><option value="custom">Fechas personalizadas</option></select></label>
             <div class="stats-custom-dates hidden" id="stats-custom-dates"><label>Desde<input type="date" id="stats-from"></label><label>Hasta<input type="date" id="stats-to"></label></div>
@@ -201,7 +201,7 @@
 
   <div class="modal-backdrop hidden success-backdrop" id="order-success" role="dialog" aria-modal="true" aria-labelledby="order-success-title">
     <section class="success-card">
-      <div class="success-logo-wrap"><span class="success-orbit"></span><img src="img/logo-color.png" alt="Logo de Hangary" class="success-logo"><span class="success-check">✓</span></div>
+      <div class="success-logo-wrap"><span class="success-orbit"></span><img src="img/logo-color.png" alt="Logo de Hangari" class="success-logo"><span class="success-check">✓</span></div>
       <p class="eyebrow">Una Navidad para compartir</p><h2 id="order-success-title">¡Tu pedido está confirmado!</h2>
       <p class="success-description">Recibimos tu pedido correctamente. Nuestro equipo se comunicará contigo para confirmar los detalles.</p>
       <div class="success-order-code">Código de pedido <strong id="order-success-code"></strong></div>
@@ -234,9 +234,9 @@
       if(img.complete&&img.naturalWidth)ok();else img.addEventListener('load',ok);
     });
   </script>
-  <script src="config.js"></script>
-  <script src="catalog-pdf.js?v=20261113-localjspdf-v2"></script>
-  <script src="app.js?v=20261113-catalog-v1"></script>
+  <script src="config.js?v=20261113-hangari-brand1"></script>
+  <script src="catalog-pdf.js?v=20261113-hangari-brand1"></script>
+  <script src="app.js?v=20261113-hangari-brand1"></script>
 
   <script>
     (function(){

@@ -1,4 +1,4 @@
-# Hangary — plataforma de pedidos navideños
+# Hangari — plataforma de pedidos navideños
 
 MVP frontend en HTML, CSS y JavaScript vanilla, con Supabase como backend.
 
@@ -22,7 +22,7 @@ MVP frontend en HTML, CSS y JavaScript vanilla, con Supabase como backend.
 
 ```sql
 insert into public.profiles(id, full_name, role)
-values ('UUID_DEL_USUARIO', 'Administrador Hangary', 'admin');
+values ('UUID_DEL_USUARIO', 'Administrador Hangari', 'admin');
 
 insert into public.profiles(id, full_name, role)
 values ('UUID_DEL_DOMICILIARIO', 'Carlos Pérez', 'delivery');
@@ -36,7 +36,7 @@ Abre la carpeta con VS Code y usa una extensión de servidor local como **Live S
 No es recomendable abrir `index.html` directamente como `file://`; utiliza un servidor local.
 
 ## 3. Personalizar el catálogo
-Los productos de demostración se insertan desde `supabase.sql`. Cambia nombres, descripciones, categorías, precios, unidades e imágenes por el menú real de Hangary. Para agregar o editar productos después, usa el SQL Editor o el Table Editor de Supabase.
+Los productos de demostración se insertan desde `supabase.sql`. Cambia nombres, descripciones, categorías, precios, unidades e imágenes por el menú real de Hangari. Para agregar o editar productos después, usa el SQL Editor o el Table Editor de Supabase.
 
 ## 4. Flujo operativo
 - El cliente registra el pedido: estado `Pendiente`, pago `Pendiente`.

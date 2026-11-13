@@ -1,4 +1,4 @@
-/* Catálogo navideño Hangary · PDF dinámico desde los productos vigentes. */
+/* Catálogo navideño Hangari · PDF dinámico desde los productos vigentes. */
 (function () {
   "use strict";
   const A4_W = 210, A4_H = 297;
@@ -57,7 +57,7 @@
         else reject(new Error("La biblioteca PDF no está disponible."));
       };
       script.onerror = function () {
-        reject(new Error("No fue posible cargar el generador PDF de Hangary. Actualiza la página e inténtalo de nuevo."));
+        reject(new Error("No fue posible cargar el generador PDF de Hangari. Actualiza la página e inténtalo de nuevo."));
       };
       document.head.appendChild(script);
     }).catch(function (error) { libPromise = null; throw error; });
@@ -113,7 +113,7 @@
       imageCache.set(key, data);
       return data;
     } catch (error) {
-      console.warn("Hangary: no se pudo incluir la imagen del PDF.", src, error);
+      console.warn("Hangari: no se pudo incluir la imagen del PDF.", src, error);
       imageCache.set(key, null);
       return null;
     }
@@ -154,7 +154,7 @@
     const logo = await jpegContain("img/logo-color.png", 320, 320, COLORS.dark);
     if (logo) doc.addImage(logo, "JPEG", 89, 11, 32, 32);
     doc.setFont("helvetica", "bold"); doc.setFontSize(19); color(doc, COLORS.pale);
-    doc.text("HANGARY", 105, 56, { align: "center" });
+    doc.text("HANGARI", 105, 56, { align: "center" });
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11); color(doc, COLORS.gold);
     doc.text("CATÁLOGO NAVIDEÑO", 105, 70, { align: "center" });
@@ -180,7 +180,7 @@
     fill(doc, COLORS.cream); doc.rect(0, 0, A4_W, A4_H, "F");
     fill(doc, COLORS.dark); doc.rect(0, 0, A4_W, 8, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); color(doc, COLORS.gold);
-    doc.text("HANGARY  /  MENÚ NAVIDEÑO", 14, 17);
+    doc.text("HANGARI  /  MENÚ NAVIDEÑO", 14, 17);
     doc.setFont("helvetica", "bold"); doc.setFontSize(24); color(doc, COLORS.ink);
     doc.text(clean(category), 14, 31);
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); color(doc, COLORS.muted);
@@ -197,7 +197,7 @@
     if (photo) doc.addImage(photo, "JPEG", x + 2, y + 2, w - 4, 50);
     else {
       fill(doc, COLORS.pale); doc.roundedRect(x + 2, y + 2, w - 4, 50, 2, 2, "F");
-      drawText(doc, "HANGARY", x + 24, y + 28, w - 26, 1, 16, "bold", COLORS.cocoa);
+      drawText(doc, "HANGARI", x + 24, y + 28, w - 26, 1, 16, "bold", COLORS.cocoa);
     }
     drawText(doc, item.name, x + 4, y + 60, w - 8, 2, 11.2, "bold", COLORS.ink, 1.08);
     drawText(doc, item.description || "", x + 4, y + 73, w - 8, 4, 7.9, "normal", COLORS.muted, 1.18);
@@ -226,7 +226,7 @@
     fill(doc, COLORS.gold); doc.rect(0, 0, A4_W, 5, "F");
     stroke(doc, COLORS.gold); doc.setLineWidth(0.55); doc.line(21, 47, 189, 47);
     doc.setFont("helvetica", "bold"); doc.setFontSize(13); color(doc, COLORS.gold);
-    doc.text("HANGARY", 105, 36, { align: "center" });
+    doc.text("HANGARI", 105, 36, { align: "center" });
     doc.setFont("helvetica", "bold"); doc.setFontSize(25); color(doc, COLORS.white);
     doc.text("La mesa está lista.", 105, 71, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(13); color(doc, COLORS.pale);
@@ -240,7 +240,7 @@
     doc.setFont("helvetica", "bold"); doc.setFontSize(14); color(doc, COLORS.gold);
     doc.text("Haz tu pedido en línea", 105, 192, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); color(doc, COLORS.cream);
-    doc.text("Explora los " + count + " productos y arma tu pedido en Hangary.", 105, 205, { align: "center" });
+    doc.text("Explora los " + count + " productos y arma tu pedido en Hangari.", 105, 205, { align: "center" });
     fill(doc, COLORS.gold); doc.roundedRect(37, 223, 136, 18, 8, 8, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); color(doc, COLORS.dark);
     doc.text("ABRIR TIENDA ONLINE", 105, 235, { align: "center" });
@@ -260,9 +260,9 @@
     imageCache.clear();
     const doc = new Pdf({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
     doc.setProperties({
-      title: "Catálogo navideño Hangary",
+      title: "Catálogo navideño Hangari",
       subject: "Menú y precios vigentes",
-      author: "Hangary"
+      author: "Hangari"
     });
     const ordered = products.slice();
     await coverPage(doc, ordered.length, onProgress);
@@ -276,12 +276,12 @@
       doc.setPage(page);
       doc.setFont("helvetica", "normal"); doc.setFontSize(8); color(doc, COLORS.muted);
       doc.text("Precios en pesos colombianos  |  " + page + " / " + total, 196, 290, { align: "right" });
-      doc.text("HANGARY", 14, 290);
+      doc.text("HANGARI", 14, 290);
     }
     if (onProgress) onProgress("Finalizando PDF...");
     return {
       blob: doc.output("blob"),
-      filename: "Hangary-Catalogo-Navideno.pdf",
+      filename: "Hangari-Catalogo-Navideno.pdf",
       pages: total,
       products: ordered.length
     };
@@ -297,5 +297,5 @@
     anchor.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 45000);
   }
-  window.HangaryCatalogPdf = Object.freeze({ create: create, download: download });
+  window.HangariCatalogPdf = Object.freeze({ create: create, download: download });
 })();

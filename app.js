@@ -1,6 +1,6 @@
-/* Hangary — storefront + staff dashboard */
+/* Hangari — storefront + staff dashboard */
 (() => {
-  const cfg = window.HANGARY_CONFIG || {};
+  const cfg = window.HANGARI_CONFIG || {};
   const configured = cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY &&
     !cfg.SUPABASE_URL.includes("TU-PROYECTO") && !cfg.SUPABASE_ANON_KEY.includes("TU_SUPABASE");
   const db = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
@@ -51,7 +51,7 @@
     const status = $("#catalog-pdf-status");
     if (!downloadButton || !status) return;
     if (!db) { notify("El catálogo no está disponible. Revisa la conexión e inténtalo de nuevo.", true); return; }
-    if (!window.HangaryCatalogPdf) { notify("No fue posible iniciar el generador PDF.", true); return; }
+    if (!window.HangariCatalogPdf) { notify("No fue posible iniciar el generador PDF.", true); return; }
     const originalDownload = downloadButton.innerHTML;
     const originalShare = shareButton ? shareButton.innerHTML : "";
     downloadButton.disabled = true;
@@ -64,14 +64,14 @@
         .eq("active", true).order("sort_order", {ascending:true}).order("name", {ascending:true});
       if (error) throw error;
       if (!data || !data.length) throw new Error("No hay productos activos en el catálogo.");
-      const file = await window.HangaryCatalogPdf.create(data, function (message) {
+      const file = await window.HangariCatalogPdf.create(data, function (message) {
         status.textContent = message;
       });
       if (mode === "share" && typeof navigator.share === "function" && typeof File === "function") {
         const attachment = new File([file.blob], file.filename, {type:"application/pdf"});
         if (!navigator.canShare || navigator.canShare({files:[attachment]})) {
           await navigator.share({
-            title: "Catálogo navideño Hangary",
+            title: "Catálogo navideño Hangari",
             text: "Conoce nuestras preparaciones y precios.",
             files: [attachment]
           });
@@ -79,13 +79,13 @@
           return;
         }
       }
-      window.HangaryCatalogPdf.download(file);
+      window.HangariCatalogPdf.download(file);
       status.textContent = file.products + " productos en " + file.pages + " páginas. PDF descargado.";
       if (mode === "share") notify("El PDF se descargó. Puedes adjuntarlo en WhatsApp.");
       else notify("Catálogo PDF descargado correctamente.");
     } catch (error) {
       if (error && error.name === "AbortError") { status.textContent = "Compartir cancelado."; return; }
-      console.error("Hangary PDF:", error);
+      console.error("Hangari PDF:", error);
       status.textContent = "No fue posible generar el PDF.";
       notify(error && error.message ? error.message : "Ocurrió un error al crear el PDF.", true);
     } finally {
@@ -337,7 +337,7 @@ async function submitOrder(e) {
     if(!user){showStore();return;}
     const {data:prof,error}=await db.from("profiles").select("id,full_name,role").eq("id",user.id).single();
     if(error||!prof||!["admin","delivery"].includes(prof.role)){
-      await db.auth.signOut();showStore();notify("Tu usuario no tiene un rol habilitado en Hangary.",true);return;
+      await db.auth.signOut();showStore();notify("Tu usuario no tiene un rol habilitado en Hangari.",true);return;
     }
     profile=prof;$("#storefront").classList.add("hidden");$(".site-header").classList.add("hidden");$(".site-footer").classList.add("hidden");$("#staff-app").classList.remove("hidden");
     closeModal("login-modal");
@@ -351,7 +351,7 @@ async function submitOrder(e) {
     if(prof.role==="admin"){await loadDeliveryTeam();await loadInventory();}
     await loadOrders();
     if(staffRealtimeChannel)db.removeChannel(staffRealtimeChannel);
-    staffRealtimeChannel=db.channel("hangary-staff-live")
+    staffRealtimeChannel=db.channel("hangari-staff-live")
       .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>loadOrders())
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"order_items"},()=>loadOrders())
       .on("postgres_changes",{event:"*",schema:"public",table:"inventory_items"},()=>{if(profile?.role==="admin")loadInventory();})
@@ -465,7 +465,7 @@ async function submitOrder(e) {
       inventoryStage="dibujando tablas y gráficos";
       renderInventory();
     }catch(error){
-      console.error("Error cargando inventario Hangary:",inventoryStage,error,error?.stack);
+      console.error("Error cargando inventario Hangari:",inventoryStage,error,error?.stack);
       const detail=String(error?.message||error||"Error desconocido").slice(0,240);
       if(target)target.innerHTML='<div class="empty-state"><strong>No fue posible mostrar el inventario.</strong><p>Etapa: '+esc(inventoryStage)+'. Detalle: '+esc(detail)+'</p><button type="button" class="btn btn-outline" id="retry-inventory">Reintentar</button></div>';
       const retry=$("#retry-inventory");if(retry)retry.addEventListener("click",loadInventory);
@@ -564,7 +564,7 @@ async function submitOrder(e) {
     if(error||!data?.length){notify("No hay domiciliarios registrados. Crea primero un perfil en Gestión del equipo.",true);return;}
     const modal=document.createElement("div");
     modal.className="modal-backdrop";
-    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true"><button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Logística Hangary</p><h2>Asignar domiciliario</h2><form class="form-grid"><label class="span-2">Selecciona el responsable<select name="delivery_id" required><option value="">Elige un domiciliario</option>'+data.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("")+'</select></label><button class="btn btn-primary btn-full span-2" type="submit">Asignar pedido</button></form></section>';
+    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true"><button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Logística Hangari</p><h2>Asignar domiciliario</h2><form class="form-grid"><label class="span-2">Selecciona el responsable<select name="delivery_id" required><option value="">Elige un domiciliario</option>'+data.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("")+'</select></label><button class="btn btn-primary btn-full span-2" type="submit">Asignar pedido</button></form></section>';
     document.body.appendChild(modal);
     const close=()=>modal.remove();
     modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close"))close();});

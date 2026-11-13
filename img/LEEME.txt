@@ -1,4 +1,4 @@
-IMAGENES DE HANGARY - reglas de nombres
+IMAGENES DE HANGARI - reglas de nombres
 =======================================
 Usa SIEMPRE minusculas, sin espacios, sin tildes ni ñ, con guiones: pernil-de-cerdo.jpg
 Usa la extension exacta (.jpg, no .JPG ni .jpeg). En Netlify/Vercel (Linux) "Pernil.JPG" y "pernil.jpg"
