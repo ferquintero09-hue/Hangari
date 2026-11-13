@@ -503,6 +503,109 @@ async function submitOrder(e) {
     if(statsPeriod==="custom")return {from:$("#stats-from").value||"0000-01-01",to:$("#stats-to").value||"9999-12-31"};
     return {from:"0000-01-01",to:"9999-12-31"};
   }
+
+  function getSellerRange(){
+    const today=localToday();
+    if(sellerStatsPeriod==="today")return {from:today,to:today};
+    if(sellerStatsPeriod==="7days"){
+      const day=new Date(today+"T12:00:00-05:00");
+      day.setDate(day.getDate()-6);
+      return {from:dateInBogota(day),to:today};
+    }
+    if(sellerStatsPeriod==="month")return {from:today.slice(0,7)+"-01",to:today};
+    return {from:"0000-01-01",to:"9999-12-31"};
+  }
+  function renderSellerAnalytics(){
+    if(profile?.role!=="admin")return;
+    const target=$("#sellers-analytics");if(!target)return;
+    const range=getSellerRange();
+    const rows=sellers.map(x=>({
+      name:x.name,active:x.active,is_system:x.is_system,
+      count:0,sales:0,collected:0,pending:0,products:{},orders:[]
+    }));
+    const byName=new Map(rows.map(x=>[x.name.toLocaleLowerCase("es-CO"),x]));
+    const ensure=(name)=>{
+      const normalized=String(name||"Hangari").trim()||"Hangari",key=normalized.toLocaleLowerCase("es-CO");
+      if(!byName.has(key)){
+        const item={name:normalized,active:false,is_system:false,historical:true,count:0,sales:0,collected:0,pending:0,products:{},orders:[]};
+        byName.set(key,item);rows.push(item);
+      }
+      return byName.get(key);
+    };
+    orders.forEach(o=>{
+      if(o.status==="Cancelado")return;
+      const when=dateInBogota(o.created_at);
+      if(when<range.from||when>range.to)return;
+      const entry=ensure(o.seller);
+      const amount=Number(o.total||0);
+      entry.count+=1;
+      entry.sales+=amount;
+      if(o.payment_status==="Pagado")entry.collected+=amount;
+      else entry.pending+=amount;
+      entry.orders.push(o);
+      (o.order_items||[]).forEach(item=>{
+        const name=item.product_name||"Producto",unit=item.options?.sale_unit==="kg"?"kg":"uds.";
+        const key=name+"|"+unit;
+        if(!entry.products[key])entry.products[key]={name,unit,quantity:0,amount:0};
+        entry.products[key].quantity+=Number(item.quantity||0);
+        entry.products[key].amount+=Number(item.line_total??Number(item.quantity||0)*Number(item.unit_price||0));
+      });
+    });
+    rows.sort((a,b)=>b.count-a.count||b.sales-a.sales||
+      (a.is_system?-1:b.is_system?1:a.name.localeCompare(b.name,"es")));
+    const totalOrders=rows.reduce((n,x)=>n+x.count,0);
+    const totalSales=rows.reduce((n,x)=>n+x.sales,0);
+    const totalCollected=rows.reduce((n,x)=>n+x.collected,0);
+    const countActive=rows.filter(x=>x.active&&!x.is_system).length;
+    const metrics={
+      orders:{label:"Pedidos",value:x=>x.count,format:n=>kg(n),short:n=>String(n)},
+      sales:{label:"Ventas registradas",value:x=>x.sales,format:n=>money(n),short:n=>"$"+new Intl.NumberFormat("es-CO",{notation:"compact",maximumFractionDigits:1}).format(n)},
+      collected:{label:"Recaudo confirmado",value:x=>x.collected,format:n=>money(n),short:n=>"$"+new Intl.NumberFormat("es-CO",{notation:"compact",maximumFractionDigits:1}).format(n)}
+    };
+    const current=metrics[sellerChartMetric]||metrics.orders;
+    const width=Math.max(660,rows.length*136+95);
+    const max=Math.max(1,...rows.map(current.value));
+    const baseline=230;
+    const bars=rows.map((x,i)=>{
+      const value=current.value(x),height=value/max*168;
+      const left=74+i*136;
+      const barWidth=62;
+      const label=x.name.length>16?x.name.slice(0,14)+"…":x.name;
+      return '<g><title>'+esc(x.name)+' · '+esc(current.label)+': '+esc(current.format(value))+'</title>'+
+        '<rect x="'+left+'" y="'+(baseline-height)+'" width="'+barWidth+'" height="'+height+'" rx="9" fill="url(#sellerBarGradient)" />'+
+        '<text x="'+(left+barWidth/2)+'" y="'+Math.max(23,baseline-height-10)+'" text-anchor="middle" class="seller-graph-number">'+esc(current.short(value))+'</text>'+
+        '<text x="'+(left+barWidth/2)+'" y="251" text-anchor="middle" class="seller-graph-name">'+esc(label)+'</text></g>';
+    }).join("");
+    const chart=totalOrders?
+      '<div class="seller-chart-scroll"><svg width="'+width+'" height="281" viewBox="0 0 '+width+' 281" role="img" aria-label="'+esc(current.label)+' por vendedor">'+
+        '<defs><linearGradient id="sellerBarGradient" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#84652e"/><stop offset="48%" stop-color="#c8a365"/><stop offset="100%" stop-color="#ead39d"/></linearGradient></defs>'+
+        '<line x1="52" y1="'+baseline+'" x2="'+(width-14)+'" y2="'+baseline+'" stroke="#ded5c5" stroke-width="1.5"/>'+bars+'</svg></div>':
+      '<div class="seller-graph-empty"><span>✦</span><strong>Aún no hay ventas registradas</strong><p>Los gráficos aparecerán cuando lleguen los primeros pedidos.</p></div>';
+    const cards=rows.map(x=>{
+      const goods=Object.values(x.products).sort((a,b)=>b.amount-a.amount);
+      const goodsHtml=goods.length?goods.map(p=>
+        '<div class="seller-product-row"><div><strong>'+esc(p.name)+'</strong><small>'+kg(p.quantity)+' '+esc(p.unit)+'</small></div><b>'+money(p.amount)+'</b></div>').join(""):
+        '<p class="empty-state compact">Todavía no hay productos vendidos por este vendedor.</p>';
+      const orderHtml=x.orders.length?x.orders.map(o=>
+        '<div class="seller-order-row"><div><strong>'+esc(o.order_number)+'</strong><small>'+esc(dateInBogota(o.created_at))+' · '+esc(o.customer_name)+'</small></div><span class="'+(o.payment_status==="Pagado"?"seller-paid":"seller-pending")+'">'+esc(o.payment_status||"Pendiente")+'</span><b>'+money(o.total)+'</b></div>').join(""):
+        '<p class="empty-state compact">Sin pedidos en este periodo.</p>';
+      return '<details class="seller-sales-card"><summary><div class="seller-sales-name"><span class="seller-sales-avatar">'+esc(x.name.charAt(0).toUpperCase())+'</span><div><strong>'+esc(x.name)+'</strong><small>'+(x.is_system?'Venta directa · Hangari':x.active?'Vendedor activo':x.historical?'Vendedor histórico':'Vendedor inactivo')+'</small></div></div><div class="seller-sales-mini"><span><b>'+x.count+'</b> pedidos</span><span><b>'+money(x.sales)+'</b> vendidos</span><span><b>'+money(x.collected)+'</b> recaudados</span></div><span class="seller-sales-arrow">⌄</span></summary>'+
+        '<div class="seller-sales-details"><div class="seller-sales-detail-head"><span>Pendiente de recaudo: <strong>'+money(x.pending)+'</strong></span><span>'+goods.length+' referencias vendidas</span></div>'+
+        '<div class="seller-sales-detail-grid"><section><h4>Productos vendidos</h4>'+goodsHtml+'</section><section><h4>Pedidos atribuidos</h4>'+orderHtml+'</section></div></div></details>';
+    }).join("");
+    target.innerHTML=
+      '<div class="seller-kpi-grid">'+
+      '<article class="seller-kpi seller-kpi-primary"><span>Pedidos registrados</span><strong>'+totalOrders+'</strong><small>Excluye cancelados</small></article>'+
+      '<article class="seller-kpi"><span>Ventas registradas</span><strong>'+money(totalSales)+'</strong><small>Valor de los pedidos</small></article>'+
+      '<article class="seller-kpi"><span>Recaudo confirmado</span><strong>'+money(totalCollected)+'</strong><small>Solo pagos recibidos</small></article>'+
+      '<article class="seller-kpi"><span>Vendedores activos</span><strong>'+countActive+'</strong><small>Sin contar Hangari</small></article></div>'+
+      '<section class="seller-chart-panel"><div class="seller-chart-heading"><div><h3>Rendimiento por vendedor</h3><p>Compara pedidos, ventas y recaudos reales.</p></div>'+
+      '<div class="seller-chart-modes">'+Object.keys(metrics).map(key=>'<button class="'+(sellerChartMetric===key?'active':'')+'" type="button" data-seller-metric="'+key+'">'+esc(metrics[key].label)+'</button>').join("")+'</div></div>'+chart+'</section>'+
+      '<div class="seller-results-heading"><div><h3>Detalle por vendedor</h3><p>Abre cada tarjeta para consultar productos, pedidos y recaudos.</p></div><strong>'+rows.length+' registros</strong></div>'+
+      '<div class="seller-sales-list">'+cards+'</div>'+
+      '<p class="seller-stats-footnote">Las ventas corresponden a pedidos no cancelados del periodo seleccionado. El recaudo refleja únicamente los pedidos marcados como pagados, atribuidos al vendedor actual. La asignación comercial puede ser corregida por el administrador.</p>';
+  }
+
   function renderStatistics(){
     if(profile?.role!=="admin")return;
     const range=getStatsRange();
