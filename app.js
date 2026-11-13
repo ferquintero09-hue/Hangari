@@ -45,6 +45,56 @@
     } else {products=[]; notify("El catálogo no está disponible en este momento.",true);}
     renderProducts();
   }
+  async function generateCatalogPdf(mode) {
+    const downloadButton = $("#download-catalog-pdf");
+    const shareButton = $("#share-catalog-pdf");
+    const status = $("#catalog-pdf-status");
+    if (!downloadButton || !status) return;
+    if (!db) { notify("El catálogo no está disponible. Revisa la conexión e inténtalo de nuevo.", true); return; }
+    if (!window.HangaryCatalogPdf) { notify("No fue posible iniciar el generador PDF.", true); return; }
+    const originalDownload = downloadButton.innerHTML;
+    const originalShare = shareButton ? shareButton.innerHTML : "";
+    downloadButton.disabled = true;
+    if (shareButton) shareButton.disabled = true;
+    downloadButton.textContent = "Preparando PDF...";
+    status.textContent = "Consultando el catálogo vigente...";
+    try {
+      const {data, error} = await db.from("products")
+        .select("name,category,price,description,unit,image_url,base_weight_kg,sort_order")
+        .eq("active", true).order("sort_order", {ascending:true}).order("name", {ascending:true});
+      if (error) throw error;
+      if (!data || !data.length) throw new Error("No hay productos activos en el catálogo.");
+      const file = await window.HangaryCatalogPdf.create(data, function (message) {
+        status.textContent = message;
+      });
+      if (mode === "share" && typeof navigator.share === "function" && typeof File === "function") {
+        const attachment = new File([file.blob], file.filename, {type:"application/pdf"});
+        if (!navigator.canShare || navigator.canShare({files:[attachment]})) {
+          await navigator.share({
+            title: "Catálogo navideño Hangary",
+            text: "Conoce nuestras preparaciones y precios.",
+            files: [attachment]
+          });
+          status.textContent = "Catálogo listo para compartir.";
+          return;
+        }
+      }
+      window.HangaryCatalogPdf.download(file);
+      status.textContent = file.products + " productos en " + file.pages + " páginas. PDF descargado.";
+      if (mode === "share") notify("El PDF se descargó. Puedes adjuntarlo en WhatsApp.");
+      else notify("Catálogo PDF descargado correctamente.");
+    } catch (error) {
+      if (error && error.name === "AbortError") { status.textContent = "Compartir cancelado."; return; }
+      console.error("Hangary PDF:", error);
+      status.textContent = "No fue posible generar el PDF.";
+      notify(error && error.message ? error.message : "Ocurrió un error al crear el PDF.", true);
+    } finally {
+      downloadButton.disabled = false;
+      downloadButton.innerHTML = originalDownload;
+      if (shareButton) { shareButton.disabled = false; shareButton.innerHTML = originalShare; }
+    }
+  }
+
   function galleryImages(p) {
     const primary = String(p.image_url || p.image || "").trim();
     const extras = Array.isArray(p.image_gallery) ? p.image_gallery : [];
@@ -553,6 +603,15 @@ async function submitOrder(e) {
   }
 
   // UI events
+  $("#download-catalog-pdf").addEventListener("click", function () { generateCatalogPdf("download"); });
+  const sharePdfButton = $("#share-catalog-pdf");
+  if (sharePdfButton && typeof navigator.share === "function" && typeof navigator.canShare === "function" && typeof File === "function") {
+    try {
+      const sample = new File([""], "catalogo.pdf", {type:"application/pdf"});
+      if (navigator.canShare({files:[sample]})) sharePdfButton.hidden = false;
+    } catch (_) { /* Compartir archivos no es compatible con este navegador. */ }
+  }
+  if (sharePdfButton) sharePdfButton.addEventListener("click", function () { generateCatalogPdf("share"); });
   $("#category-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(!b)return;document.querySelectorAll("[data-category]").forEach(x=>x.classList.toggle("active",x===b));renderProducts(b.dataset.category);});
   $("#cart-open").addEventListener("click",showCart);$("#banner-cart").addEventListener("click",showCart);
   $("#cart-close").addEventListener("click",hideCart);$("#cart-overlay").addEventListener("click",hideCart);
