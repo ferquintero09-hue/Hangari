@@ -64,7 +64,7 @@
           <span class="photo-hint">Ver fotografías <span aria-hidden="true">↗</span></span>
         </button>
         <div class="product-info"><div><h3>${esc(p.name)}</h3><p>${esc(p.description||"Preparado para compartir.")}</p></div>
-          <div class="product-buy"><div><strong>${money(unitPrice(p))}</strong><small>${isWeightProduct(p)?"por kg · "+esc(p.unit||"")+" · Fracción de 0,5 kg: +$5.000":esc(p.unit||"")}</small></div>
+          <div class="product-buy"><div><strong>${money(p.price)}</strong><small>${isWeightProduct(p)?kg(p.base_weight_kg||1)+" kg":esc(p.unit||"")}</small></div>
           <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
         </div>
       </article>`).join(""):'<p class="empty-state">No hay productos disponibles para mostrar.</p>';
