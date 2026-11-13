@@ -50,14 +50,14 @@
     if (libPromise) return libPromise;
     libPromise = new Promise(function (resolve, reject) {
       const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";
+      script.src = "vendor/jspdf.umd.min.js?v=2.5.2";
       script.async = true;
       script.onload = function () {
         if (window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
         else reject(new Error("La biblioteca PDF no está disponible."));
       };
       script.onerror = function () {
-        reject(new Error("No fue posible descargar el generador PDF. Revisa tu conexión."));
+        reject(new Error("No fue posible cargar el generador PDF de Hangary. Actualiza la página e inténtalo de nuevo."));
       };
       document.head.appendChild(script);
     }).catch(function (error) { libPromise = null; throw error; });
