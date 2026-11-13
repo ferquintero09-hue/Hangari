@@ -14,14 +14,6 @@
   // Una URL completa (https://...) también funciona. Si la foto no existe se ve el placeholder.
   const PRODUCT_IMG_BASE = "img/productos/";
   const PRODUCT_IMG_PLACEHOLDER = PRODUCT_IMG_BASE + "_placeholder.svg";
-  const demoProducts = [
-    {id:"demo-1",name:"Pernil de cerdo horneado",description:"Jugoso, dorado y preparado con el sabor de la tradición.",category:"Proteínas",price:185000,unit:"por pieza",image:"proteinas/pernil-de-cerdo-horneado.jpg"},
-    {id:"demo-2",name:"Pechuga rellena",description:"Una receta especial para compartir en familia.",category:"Proteínas",price:95000,unit:"por unidad",image:"proteinas/pechuga-rellena.jpg"},
-    {id:"demo-3",name:"Ensalada navideña",description:"Fresca, cremosa y con el toque dulce de la casa.",category:"Ensaladas",price:48000,unit:"por porción familiar",image:"ensaladas/ensalada-navidena.jpg"},
-    {id:"demo-4",name:"Ensalada de papa",description:"Ese acompañamiento clásico que nunca puede faltar.",category:"Ensaladas",price:42000,unit:"por porción familiar",image:"ensaladas/ensalada-de-papa.jpg"},
-    {id:"demo-5",name:"Cena navideña Hangary",description:"Una combinación especial para llevar a la mesa.",category:"Platos",price:72000,unit:"por persona",image:"platos/cena-navidena-hangary.jpg"},
-    {id:"demo-6",name:"Novenita para compartir",description:"Una selección deliciosa para acompañar tus encuentros.",category:"Novenitas",price:65000,unit:"por kit",image:"novenitas/novenita-para-compartir.jpg"}
-  ];
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
   let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
@@ -49,8 +41,8 @@
     if (db) {
       const {data,error}=await db.from("products").select("id,name,description,category,price,unit,image_url,image_gallery,base_weight_kg,active").eq("active",true).order("sort_order");
       if (!error && data) products=data;
-      else { console.error(error); products=demoProducts; notify("No fue posible cargar el catálogo. Mostrando productos de demostración.",true); }
-    } else products=demoProducts;
+      else { console.error(error); products=[]; notify("No fue posible cargar el catálogo. Revisa la conexión e inténtalo de nuevo.",true); }
+    } else {products=[]; notify("El catálogo no está disponible en este momento.",true);}
     renderProducts();
   }
   function galleryImages(p) {
@@ -75,7 +67,7 @@
           <div class="product-buy"><div><strong>${money(unitPrice(p))}</strong><small>${isWeightProduct(p)?"por kg · "+esc(p.unit||"")+" · Fracción de 0,5 kg: +$5.000":esc(p.unit||"")}</small></div>
           <button class="add-button" data-add="${esc(p.id)}" aria-label="Agregar ${esc(p.name)}">+</button></div>
         </div>
-      </article>`).join(""):'<p class="empty-state">Pronto tendremos productos en esta categoría.</p>';
+      </article>`).join(""):'<p class="empty-state">No hay productos disponibles para mostrar.</p>';
     document.querySelectorAll("[data-add]").forEach(b=>b.addEventListener("click",()=>addToCart(b.dataset.add)));
     document.querySelectorAll("[data-gallery]").forEach(b=>b.addEventListener("click",()=>openProductGallery(b.dataset.gallery)));
   }
@@ -381,13 +373,12 @@ async function submitOrder(e) {
     const periodOrders=orders.filter(o=>{const d=dateInBogota(o.created_at);return d>=range.from&&d<=range.to;});
     const activeOrders=periodOrders.filter(o=>o.status!=="Cancelado");
     const realPaidOrders=orders.filter(o=>o.payment_status==="Pagado"&&dateInBogota(o.paid_at||o.created_at)>=range.from&&dateInBogota(o.paid_at||o.created_at)<=range.to);
-    const demoCollection=realPaidOrders.length===0;
     const paidOrders=realPaidOrders;
     const pendingOrders=activeOrders.filter(o=>o.payment_status!=="Pagado");
-    const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0),collected=demoCollection?1845000:paidOrders.reduce((s,o)=>s+Number(o.total||0),0),pendingAmount=pendingOrders.reduce((s,o)=>s+Number(o.total||0),0),average=activeOrders.length?sales/activeOrders.length:0;
+    const sales=activeOrders.reduce((s,o)=>s+Number(o.total||0),0),collected=paidOrders.reduce((s,o)=>s+Number(o.total||0),0),pendingAmount=pendingOrders.reduce((s,o)=>s+Number(o.total||0),0),average=activeOrders.length?sales/activeOrders.length:0;
     const methods=["Transferencia","Efectivo","Datáfono","Otro"];
-    const paymentTotals=demoCollection?[{method:"Transferencia",total:920000},{method:"Efectivo",total:575000},{method:"Datáfono",total:250000},{method:"Otro",total:100000}]:methods.map(method=>({method,total:paidOrders.filter(o=>o.confirmed_payment_method===method).reduce((s,o)=>s+Number(o.total||0),0)}));
-    const unclassified=demoCollection?0:paidOrders.filter(o=>!o.confirmed_payment_method).reduce((s,o)=>s+Number(o.total||0),0);
+    const paymentTotals=methods.map(method=>({method,total:paidOrders.filter(o=>o.confirmed_payment_method===method).reduce((s,o)=>s+Number(o.total||0),0)}));
+    const unclassified=paidOrders.filter(o=>!o.confirmed_payment_method).reduce((s,o)=>s+Number(o.total||0),0);
     const paymentRows=paymentTotals.concat([{method:"Sin clasificar",total:unclassified}]).filter(x=>x.total>0);
     const assigned=activeOrders.filter(o=>o.delivery_user_id),unassigned=activeOrders.filter(o=>!o.delivery_user_id);
     const driverMap={};assigned.forEach(o=>{const n=o.delivery_profile?.full_name||"Domiciliario sin nombre";driverMap[n]=(driverMap[n]||0)+1;});
@@ -398,16 +389,16 @@ async function submitOrder(e) {
     const categoryRows=categories.map(name=>({name,total:categoryMap[name]||0})).filter(x=>x.total>0),maxCategory=Math.max(1,...categoryRows.map(x=>x.total));
     const days=Object.entries(dayMap).sort((x,y)=>x[0].localeCompare(y[0])).slice(-10),maxDay=Math.max(1,...days.map(x=>x[1]));
     $("#statistics-content").innerHTML=`
-      <div class="statistics-demo-banner">MODO PRESENTACIÓN · Los valores de recaudo que aparecen a continuación son ficticios y no corresponden a pagos reales.</div><div class="statistics-kpis"><article class="statistics-kpi featured"><span>Ventas registradas</span><strong>${money(sales)}</strong><small>${activeOrders.length} pedidos no cancelados</small></article><article class="statistics-kpi"><span>Dinero recaudado</span><strong>${money(collected)}</strong><small>${demoCollection?"Ejemplo ficticio para presentación":paidOrders.length+" pagos confirmados"}</small></article><article class="statistics-kpi"><span>Por recaudar</span><strong>${money(pendingAmount)}</strong><small>${pendingOrders.length} pedidos pendientes de pago</small></article><article class="statistics-kpi"><span>Promedio por pedido</span><strong>${money(average)}</strong><small>Ticket promedio del periodo</small></article></div>
+      <div class="statistics-kpis"><article class="statistics-kpi featured"><span>Ventas registradas</span><strong>${money(sales)}</strong><small>${activeOrders.length} pedidos no cancelados</small></article><article class="statistics-kpi"><span>Dinero recaudado</span><strong>${money(collected)}</strong><small>${paidOrders.length+" pagos confirmados"}</small></article><article class="statistics-kpi"><span>Por recaudar</span><strong>${money(pendingAmount)}</strong><small>${pendingOrders.length} pedidos pendientes de pago</small></article><article class="statistics-kpi"><span>Promedio por pedido</span><strong>${money(average)}</strong><small>Ticket promedio del periodo</small></article></div>
       <div class="statistics-two-columns">
        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Ingresos por categoría</h3><p>Valor comercial de los productos solicitados</p></div><strong>${money(sales)}</strong></div>${categoryRows.length?categoryRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.name)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxCategory*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay ventas en este periodo.</p>'}</section>
-       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Recaudo por medio de pago</h3><p>${demoCollection?"Distribución de recaudo demostrativa":"Solo pagos marcados como recibidos"}</p></div><strong>${money(collected)}</strong></div>${paymentRows.length?paymentRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.method)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxPayment*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay pagos confirmados en este periodo.</p>'}${unclassified?'<p class="statistics-note">Hay pagos sin medio confirmado. Puedes clasificarlos desde Pedidos.</p>':""}</section>
+       <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Recaudo por medio de pago</h3><p>Solo pagos marcados como recibidos</p></div><strong>${money(collected)}</strong></div>${paymentRows.length?paymentRows.map(x=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(x.method)}</span><strong>${money(x.total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,x.total/maxPayment*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Aún no hay pagos confirmados en este periodo.</p>'}${unclassified?'<p class="statistics-note">Hay pagos sin medio confirmado. Puedes clasificarlos desde Pedidos.</p>':""}</section>
       </div>
       <section class="statistics-panel products-statistics"><div class="statistics-panel-heading"><div><h3>Ventas por día</h3><p>Valor de los pedidos no cancelados</p></div><strong>${days.length} días</strong></div>${days.length?days.map(([day,total])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${new Date(day+"T12:00:00").toLocaleDateString("es-CO",{day:"2-digit",month:"short"})}</span><strong>${money(total)}</strong></div><div class="stat-bar-track"><span style="width:${Math.max(2,total/maxDay*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">No hay ventas para graficar.</p>'}</section>
       <div class="statistics-two-columns">
        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Control de domicilios</h3><p>Pedidos del periodo seleccionado</p></div><strong>${assigned.length+unassigned.length}</strong></div><div class="delivery-summary"><div><span>Asignados</span><strong>${assigned.length}</strong></div><div><span>Sin asignar</span><strong>${unassigned.length}</strong></div></div>${drivers.length?'<h4>Pedidos por domiciliario</h4>'+drivers.map(([name,count])=>`<div class="stat-bar-row"><div class="stat-bar-label"><span>${esc(name)}</span><strong>${count} pedidos</strong></div><div class="stat-bar-track delivery-track"><span style="width:${Math.max(3,count/maxDriver*100)}%"></span></div></div>`).join(""):'<p class="empty-state compact">Todavía no hay domicilios asignados.</p>'}</section>
        <section class="statistics-panel"><div class="statistics-panel-heading"><div><h3>Productos más vendidos</h3><p>Unidades y valor generado</p></div><strong>${topProducts.length} productos</strong></div>${topProducts.length?'<div class="top-products-list">'+topProducts.map(([name,d],i)=>`<div class="top-product-row"><span class="top-product-rank">${i+1}</span><strong>${esc(name)}</strong><span>${kg(d.quantity)} ${d.unit}</span><b>${money(d.total)}</b></div>`).join("")+'</div>':'<p class="empty-state compact">Aún no hay productos vendidos en este periodo.</p>'}</section>
-      </div><p class="statistics-footnote">Los valores ficticios de recaudo solo se muestran cuando no existen pagos reales confirmados. Las ventas usan pedidos no cancelados y fecha de creación. El recaudo usa la fecha de confirmación del pago. Los componentes de los platos se controlan en inventario y no se contabilizan dos veces como ingresos.</p>`;
+      </div><p class="statistics-footnote">Las ventas usan pedidos no cancelados y fecha de creación. El recaudo usa la fecha de confirmación del pago. Los platos se registran por cantidad vendida, sin descontar ingredientes del inventario.</p>`;
   }
   async function loadInventory(){
     if(!db||profile?.role!=="admin")return;
