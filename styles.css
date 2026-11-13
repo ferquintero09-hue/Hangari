@@ -438,3 +438,110 @@ body.success-open{overflow:hidden}
 .catalog-pdf-status{flex-basis:100%;min-height:0;color:var(--gold-deep);font-size:11px;font-weight:600}
 .catalog-pdf-status:empty{display:none}
 @media(max-width:650px){.catalog-pdf-toolbar{padding:17px 15px;gap:13px}.catalog-pdf-copy strong{font-size:18px}.catalog-pdf-actions{width:100%}.catalog-pdf-actions .btn{flex:1 1 auto;min-height:44px}.catalog-pdf-status{line-height:1.5}}
+
+
+/* ==========================================================
+   HANGARI · Vendedores, gestión y estadísticas comerciales
+   ========================================================== */
+.staff-navigation{overflow-x:auto;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.staff-nav-button{white-space:nowrap;flex-shrink:0}
+.sellers-view{margin-top:28px}
+.seller-dashboard-actions{display:flex;align-items:end;flex-wrap:wrap;gap:10px}
+.seller-period-label{font-size:11px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.seller-period-label select{min-height:43px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;color:var(--ink);font-size:13px}
+.seller-management{border:1px solid #e7d7b8;background:linear-gradient(125deg,#fffdf9 0%,#f6ecd8 100%);border-radius:19px;padding:22px 24px;box-shadow:var(--shadow-sm);display:grid;gap:16px;margin-bottom:22px}
+.seller-management h3{margin:0 0 5px;font:600 22px var(--serif);color:var(--mocha)}
+.seller-management p{font-size:12px;margin:0;color:var(--muted);line-height:1.6}
+.seller-create-form{display:flex;flex-direction:column;gap:8px}
+.seller-create-form label{font-weight:700;font-size:11px;color:var(--muted)}
+.seller-create-row{display:flex;gap:10px;max-width:710px}
+.seller-create-row input{min-height:46px;flex:1;min-width:0;padding:12px 14px;border:1px solid var(--sand);border-radius:12px;background:#fff;color:var(--ink);outline:none}
+.seller-create-row input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,157,78,.18)}
+.seller-admin-list{display:flex;flex-wrap:wrap;gap:9px}
+.seller-admin-item{display:flex;align-items:center;justify-content:space-between;gap:15px;min-width:min(100%,275px);flex:1 1 255px;background:#fff;border:1px solid #eee3d2;border-radius:14px;padding:11px 12px}
+.seller-admin-person{display:flex;align-items:center;gap:9px;min-width:0}
+.seller-admin-person>div{min-width:0}
+.seller-admin-avatar,.seller-sales-avatar{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;background:linear-gradient(150deg,#f4e6c9,#d7b978);color:#4f3921;font-weight:800;font-size:15px}
+.seller-admin-person strong{display:block;font-size:12px;overflow-wrap:anywhere}
+.seller-admin-person small{display:block;font-size:10px;color:var(--muted)}
+.seller-admin-item button{flex:none}
+.seller-default-tag{white-space:nowrap;font-size:10px;color:var(--gold-deep);background:#f8efdc;border-radius:99px;padding:6px 9px;font-weight:700}
+.seller-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}
+.seller-kpi{display:flex;flex-direction:column;gap:9px;min-width:0;padding:22px;border:1px solid #e8e0d4;border-radius:18px;background:#fff;box-shadow:0 8px 25px rgba(50,40,20,.06)}
+.seller-kpi>span{font-size:11px;font-weight:600;color:var(--muted)}
+.seller-kpi>strong{font:600 clamp(19px,2.25vw,29px) var(--serif);color:var(--mocha);overflow-wrap:anywhere}
+.seller-kpi>small{color:var(--muted);font-size:10px}
+.seller-kpi-primary{background:linear-gradient(135deg,#293c2f,#1b2d22);border-color:#294231}
+.seller-kpi-primary>span,.seller-kpi-primary>small{color:#e8e1c9}
+.seller-kpi-primary>strong{color:#f3d796}
+.seller-chart-panel{border-radius:20px;background:#fff;border:1px solid #e9dfd0;padding:22px 24px;box-shadow:var(--shadow-sm);margin-bottom:21px;min-width:0}
+.seller-chart-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.seller-chart-heading h3,.seller-results-heading h3{font:600 22px var(--serif);margin:0 0 5px;color:var(--mocha)}
+.seller-chart-heading p,.seller-results-heading p{font-size:12px;color:var(--muted);margin:0}
+.seller-chart-modes{display:flex;gap:5px;padding:5px;border-radius:13px;background:#f6f2e9;flex-wrap:wrap}
+.seller-chart-modes button{border:0;background:transparent;color:var(--muted);font-size:11px;font-weight:700;border-radius:9px;padding:10px 12px;transition:background .2s,color .2s}
+.seller-chart-modes button.active{background:#34291e;color:#fff7e8;box-shadow:0 3px 12px rgba(40,30,15,.15)}
+.seller-chart-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;margin-top:18px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.seller-chart-scroll svg{max-width:none;display:block}
+.seller-graph-number{font:700 12px "DM Sans",sans-serif;fill:#644b2b}
+.seller-graph-name{font:500 11px "DM Sans",sans-serif;fill:#5c5244}
+.seller-graph-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:220px;gap:7px;color:var(--muted)}
+.seller-graph-empty span{font-size:34px;color:#c8a365}
+.seller-graph-empty strong{font:600 19px var(--serif);color:var(--mocha)}
+.seller-graph-empty p{font-size:12px;margin:0}
+.seller-results-heading{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:25px 0 14px}
+.seller-results-heading>strong{color:var(--muted);font-size:11px}
+.seller-sales-list{display:grid;gap:12px}
+.seller-sales-card{min-width:0;border:1px solid #e7ddcd;border-radius:17px;background:#fff;box-shadow:0 5px 18px rgba(53,41,25,.04);overflow:hidden}
+.seller-sales-card[open]{border-color:#cfb17c;box-shadow:0 12px 30px rgba(53,41,25,.09)}
+.seller-sales-card summary{display:flex;align-items:center;gap:15px;justify-content:space-between;padding:19px 21px;cursor:pointer;list-style:none}
+.seller-sales-card summary::-webkit-details-marker{display:none}
+.seller-sales-name{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 215px}
+.seller-sales-avatar{width:43px;height:43px;border-radius:14px;font-size:19px}
+.seller-sales-name strong{display:block;font-size:14px;color:var(--mocha);overflow-wrap:anywhere}
+.seller-sales-name small{display:block;font-size:11px;color:var(--muted)}
+.seller-sales-mini{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.seller-sales-mini span{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--muted);white-space:nowrap}
+.seller-sales-mini b{font-size:15px;color:var(--mocha)}
+.seller-sales-arrow{font-size:22px;color:#a88750;transition:transform .2s}
+.seller-sales-card[open] .seller-sales-arrow{transform:rotate(180deg)}
+.seller-sales-details{padding:15px 21px 21px;border-top:1px solid var(--line);background:linear-gradient(180deg,#fffefa,#fff)}
+.seller-sales-detail-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:11px;margin:0 0 19px}
+.seller-sales-detail-head strong{color:#936934}
+.seller-sales-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.seller-sales-detail-grid section{min-width:0}
+.seller-sales-detail-grid h4{font:600 16px var(--serif);margin:0 0 12px;color:var(--mocha)}
+.seller-product-row,.seller-order-row{display:flex;gap:10px;align-items:center;justify-content:space-between;min-width:0;border-top:1px solid #f0e9df;padding:10px 0;font-size:12px}
+.seller-product-row>div,.seller-order-row>div{flex:1;min-width:0}
+.seller-product-row strong,.seller-order-row strong{display:block;font-size:12px;font-weight:600;overflow-wrap:anywhere}
+.seller-product-row small,.seller-order-row small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.seller-product-row b,.seller-order-row b{font-size:11px;white-space:nowrap}
+.seller-paid,.seller-pending{font-size:10px;font-weight:700;padding:4px 7px;border-radius:7px;white-space:nowrap}
+.seller-paid{background:#e6f4ea;color:#34764b}
+.seller-pending{background:#fff2df;color:#96652e}
+.seller-stats-footnote{font-size:11px;line-height:1.6;color:var(--muted);margin:18px 1px 25px}
+.seller-modal-note{font-size:12px;color:var(--muted);line-height:1.6;margin:12px 0 22px}
+@media(max-width:950px){.seller-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.seller-sales-detail-grid{grid-template-columns:1fr}}
+@media(max-width:650px){
+  .staff-navigation{width:100%;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start}
+  .staff-nav-button{flex:0 0 auto}
+  .seller-dashboard-actions{width:100%;justify-content:space-between}
+  .seller-management{padding:18px 15px}
+  .seller-create-row{flex-direction:column}
+  .seller-create-row .btn{width:100%}
+  .seller-admin-item{flex-basis:100%}
+  .seller-kpi-grid{gap:9px}
+  .seller-kpi{padding:16px 13px}
+  .seller-kpi>strong{font-size:20px}
+  .seller-chart-panel{padding:17px 12px}
+  .seller-chart-heading{gap:12px}
+  .seller-chart-modes{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .seller-chart-modes button{font-size:10px;padding:10px 5px}
+  .seller-sales-card summary{padding:14px 13px;gap:9px;flex-wrap:wrap}
+  .seller-sales-name{flex-basis:100%}
+  .seller-sales-mini{width:calc(100% - 30px);gap:13px}
+  .seller-sales-mini span{flex:1 1 25%;white-space:normal}
+  .seller-sales-mini b{font-size:12px}
+  .seller-sales-details{padding:13px}
+  .seller-sales-detail-grid{gap:20px}
+}
