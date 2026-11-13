@@ -17,6 +17,7 @@
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
   let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
+  let sellers = [], sellerChartMetric = "orders", sellerStatsPeriod = "all";
   const isWeightProduct=p=>["Proteínas","Ensaladas"].includes(p.category);
   const kg=n=>Number(n).toLocaleString("es-CO",{maximumFractionDigits:2});
   const unitPrice=p=>Number(p.price)/(isWeightProduct(p)?Number(p.base_weight_kg||1):1);
@@ -93,6 +94,88 @@
       downloadButton.innerHTML = originalDownload;
       if (shareButton) { shareButton.disabled = false; shareButton.innerHTML = originalShare; }
     }
+  }
+
+
+  async function loadSellers() {
+    if (!db) return;
+    const {data,error}=await db.from("sellers")
+      .select("id,name,active,is_system,created_at").order("name",{ascending:true});
+    if (error) {
+      console.error("No fue posible cargar vendedores:",error);
+      if (profile?.role==="admin") notify("No fue posible cargar la lista de vendedores.",true);
+      return;
+    }
+    sellers=data||[];
+    const picker=$("#checkout-seller");
+    if (picker) {
+      const previous=picker.value;
+      const active=sellers.filter(x=>x.active);
+      const names=["Hangari",...active.filter(x=>x.name.toLowerCase()!=="hangari").map(x=>x.name)];
+      picker.innerHTML=names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+      picker.value=names.includes(previous)?previous:"Hangari";
+    }
+    if (profile?.role==="admin") {
+      renderSellerRegistry();
+      if (!$("#sellers-view").classList.contains("hidden")) renderSellerAnalytics();
+    }
+  }
+  function renderSellerRegistry() {
+    const target=$("#seller-admin-list");
+    if (!target) return;
+    target.innerHTML=sellers.map(x=>'<div class="seller-admin-item"><div class="seller-admin-person"><span class="seller-admin-avatar">'+esc(x.name.trim().slice(0,1).toUpperCase())+'</span><div><strong>'+esc(x.name)+'</strong><small>'+(x.is_system?'Vendedor predeterminado':x.active?'Disponible para pedidos':'Inactivo · conserva historial')+'</small></div></div>'+(x.is_system?'<span class="seller-default-tag">Predeterminado</span>':'<button class="btn btn-small '+(x.active?'btn-outline':'btn-primary')+'" type="button" data-seller-toggle="'+esc(x.id)+'">'+(x.active?'Desactivar':'Activar')+'</button>')+'</div>').join("");
+  }
+  async function createSeller(e) {
+    e.preventDefault();
+    if (profile?.role!=="admin"||!db) return;
+    const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
+    const name=String(new FormData(form).get("name")||"").trim().replace(/\s+/g," ");
+    if(name.length<2){notify("Escribe el nombre del vendedor.",true);return;}
+    button.disabled=true;button.textContent="Registrando...";
+    try {
+      const {error}=await db.from("sellers").insert({name});
+      if(error)throw error;
+      form.reset();
+      await loadSellers();
+      notify("Vendedor "+name+" registrado.");
+    }catch(error){
+      console.error(error);
+      notify(error.code==="23505"?"Ese vendedor ya está registrado.":error.message||"No se pudo registrar el vendedor.",true);
+    }finally{button.disabled=false;button.textContent="Agregar vendedor";}
+  }
+  async function toggleSeller(id) {
+    if(profile?.role!=="admin"||!db)return;
+    const seller=sellers.find(x=>x.id===id);
+    if(!seller||seller.is_system)return;
+    const {data,error}=await db.from("sellers").update({active:!seller.active}).eq("id",id).select("id");
+    if(error||!data?.length){notify(error?.message||"No fue posible actualizar al vendedor.",true);return;}
+    await loadSellers();
+    notify("El vendedor quedó "+(seller.active?"inactivo.":"activo.")+" Su historial se conserva.");
+  }
+  function openSellerChange(orderId) {
+    if(profile?.role!=="admin")return;
+    const order=orders.find(o=>o.id===orderId);if(!order)return;
+    const form=$("#seller-change-form"),select=$("#order-seller-select");
+    form.elements.order_id.value=orderId;
+    select.innerHTML=sellers.filter(x=>x.active).map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join("");
+    const current=order.seller||"Hangari";
+    if(sellers.some(x=>x.active&&x.name===current))select.value=current;
+    else if(sellers.some(x=>x.active&&x.name==="Hangari"))select.value="Hangari";
+    openModal("seller-change-modal");
+  }
+  async function changeOrderSeller(e) {
+    e.preventDefault();
+    if(profile?.role!=="admin")return;
+    const form=e.currentTarget,values=Object.fromEntries(new FormData(form)),button=form.querySelector('button[type="submit"]');
+    button.disabled=true;button.textContent="Guardando...";
+    try{
+      const {error}=await db.rpc("admin_set_order_seller",{p_order_id:values.order_id,p_seller:values.seller});
+      if(error)throw error;
+      closeModal("seller-change-modal");
+      notify("Vendedor del pedido actualizado.");
+      await loadOrders();
+    }catch(error){console.error(error);notify(error.message||"No se pudo corregir el vendedor.",true);}
+    finally{button.disabled=false;button.textContent="Guardar vendedor";}
   }
 
   function galleryImages(p) {
