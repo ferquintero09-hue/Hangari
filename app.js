@@ -198,7 +198,7 @@
     $("#cart-count").textContent=cart.length;
     $("#cart-total").textContent=money(total());$("#checkout-total").textContent=money(total());
     $("#checkout-open").disabled=!cart.length;
-    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+(x.weighted?' por kg · +$5.000 si hay medio kilo adicional':' c/u')+'</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+kg(x.quantity)+(x.weighted?' kg':'')+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(lineTotal(x))+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
+    $("#cart-items").innerHTML=cart.length?cart.map(x=>'<article class="cart-item"><div class="cart-item-copy"><strong>'+esc(x.name)+'</strong><small>'+money(x.price)+(x.weighted?' por kg':' c/u')+'</small>'+(x.options?'<small class="cart-options">'+esc(optionsSummary(x.options))+'</small>':'')+'<div class="quantity"><button data-qty="'+esc(x.key)+'" data-delta="-1">−</button><span>'+kg(x.quantity)+(x.weighted?' kg':'')+'</span><button data-qty="'+esc(x.key)+'" data-delta="1">+</button></div></div><strong>'+money(lineTotal(x))+'</strong></article>').join(""):'<p class="empty-state">Tu carrito está esperando algo delicioso.</p>';
     document.querySelectorAll("[data-qty]").forEach(b=>b.addEventListener("click",()=>changeQty(b.dataset.qty,Number(b.dataset.delta))));
   }
   function showCart(){ $("#cart-overlay").classList.remove("hidden"); $("#cart-drawer").classList.remove("hidden"); }
