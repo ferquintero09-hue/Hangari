@@ -153,7 +153,8 @@
     doc.line(17, 77, 193, 77);
     const logo = await jpegContain("img/logo-color.png", 320, 320, COLORS.dark);
     if (logo) doc.addImage(logo, "JPEG", 89, 11, 32, 32);
-    drawText(doc, "HANGARY", 105, 56, 130, 1, 19, "bold", COLORS.pale);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(19); color(doc, COLORS.pale);
+    doc.text("HANGARY", 105, 56, { align: "center" });
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11); color(doc, COLORS.gold);
     doc.text("CATÁLOGO NAVIDEÑO", 105, 70, { align: "center" });
@@ -226,7 +227,8 @@
     stroke(doc, COLORS.gold); doc.setLineWidth(0.55); doc.line(21, 47, 189, 47);
     doc.setFont("helvetica", "bold"); doc.setFontSize(13); color(doc, COLORS.gold);
     doc.text("HANGARY", 105, 36, { align: "center" });
-    drawText(doc, "La mesa está lista.", 105, 71, 180, 1, 25, "bold", COLORS.white);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(25); color(doc, COLORS.white);
+    doc.text("La mesa está lista.", 105, 71, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(13); color(doc, COLORS.pale);
     doc.text("Solo faltas tú.", 105, 85, { align: "center" });
     const qr = await jpegContain("img/qr-whatsapp.jpg", 480, 480, "#FFFFFF");
@@ -273,7 +275,7 @@
     for (let page = 2; page < total; page++) {
       doc.setPage(page);
       doc.setFont("helvetica", "normal"); doc.setFontSize(8); color(doc, COLORS.muted);
-      doc.text("Precios en pesos colombianos  ·  " + page + " / " + total, 196, 290, { align: "right" });
+      doc.text("Precios en pesos colombianos  |  " + page + " / " + total, 196, 290, { align: "right" });
       doc.text("HANGARY", 14, 290);
     }
     if (onProgress) onProgress("Finalizando PDF...");
