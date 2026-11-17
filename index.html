@@ -209,6 +209,10 @@
         <label class="span-2">Medio de pago
           <select name="payment_method" required><option value="">Selecciona una opción</option><option value="Transferencia">Transferencia</option><option value="Efectivo">Efectivo</option><option value="Datáfono">Datáfono</option><option value="Otro">Otro / por acordar</option></select>
         </label>
+        <label class="span-2 checkout-notes-label" for="checkout-notes">Observaciones del pedido <span class="optional">(opcional)</span>
+          <textarea id="checkout-notes" name="notes" rows="3" maxlength="500" placeholder="¿Alguna indicación especial para preparar o entregar tu pedido?"></textarea>
+          <small class="checkout-notes-help">Puedes dejarnos instrucciones adicionales. Máximo 500 caracteres.</small>
+        </label>
         <div class="checkout-summary span-2"><span>Total de tu pedido</span><strong id="checkout-total">$0</strong></div>
         <button class="btn btn-primary btn-full span-2" type="submit" id="submit-order">Registrar pedido</button>
         <p class="tiny-note span-2">Al registrar, autorizas a Hangari a contactarte para confirmar los detalles de tu pedido.</p>
