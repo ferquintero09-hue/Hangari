@@ -15,6 +15,38 @@
 </head>
 <body>
   <a class="skip-link" href="#catalogo">Ir al menú</a>
+
+  <!-- Bienvenida navideña: música únicamente al cerrar/entrar por decisión del usuario. -->
+  <div class="hangari-welcome" id="hangari-welcome" role="dialog" aria-modal="true"
+       aria-label="Especial navideño Hangari" aria-describedby="hangari-welcome-hint" hidden>
+    <div class="hangari-welcome-glow hangari-welcome-glow-a" aria-hidden="true"></div>
+    <div class="hangari-welcome-glow hangari-welcome-glow-b" aria-hidden="true"></div>
+    <div class="hangari-welcome-card">
+      <button type="button" class="hangari-welcome-close" id="hangari-welcome-close"
+              aria-label="Cerrar anuncio y comenzar la música navideña" title="Cerrar anuncio">×</button>
+      <p class="hangari-welcome-eyebrow"><span aria-hidden="true">✦</span> UNA NAVIDAD PARA COMPARTIR <span aria-hidden="true">✦</span></p>
+      <div class="hangari-welcome-image-wrap">
+        <img class="hangari-welcome-image" src="img/navidad-dorada.png" alt="Hangari. Que nunca falte un motivo para reunirnos. Esta Navidad, el mejor ingrediente es estar juntos."
+             width="1024" height="1024" fetchpriority="high" decoding="async">
+      </div>
+      <div class="hangari-welcome-actions">
+        <button type="button" class="btn btn-primary hangari-welcome-enter" id="hangari-welcome-enter">
+          Descubrir nuestro menú <span aria-hidden="true">→</span>
+        </button>
+        <button type="button" class="hangari-welcome-silent" id="hangari-welcome-silent">Entrar sin música</button>
+        <p id="hangari-welcome-hint">Al cerrar el anuncio, sonará nuestra música navideña.</p>
+      </div>
+    </div>
+  </div>
+  <audio id="hangari-welcome-audio" preload="metadata" loop>
+    <source src="img/music/Diciembre-music.m4a" type="audio/mp4">
+  </audio>
+  <button class="hangari-music-toggle" id="hangari-music-toggle" type="button"
+          aria-label="Pausar música navideña" aria-pressed="false" hidden>
+    <span class="hangari-music-disc" id="hangari-music-icon" aria-hidden="true">♫</span>
+    <span id="hangari-music-label">Pausar música</span>
+  </button>
+
   <div class="garland" aria-hidden="true"><span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span> ✧ <span>✦</span></div>
   <header class="site-header">
     <a class="brand" href="#" aria-label="Hangari inicio">
@@ -282,6 +314,7 @@
   <script src="config.js?v=20261113-hangari-brand1"></script>
   <script src="catalog-pdf.js?v=20261113-hangari-brand1"></script>
   <script src="app.js?v=20261117-credit-cancel-revenue-v1"></script>
+  <script src="welcome.js?v=20261117-festive-intro-v1"></script>
 
   <script>
     (function(){
