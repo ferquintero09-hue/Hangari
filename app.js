@@ -17,7 +17,7 @@
 
   let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos", orderRouteFilter = "Todas";
   let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
-  let sellers = [], sellerChartMetric = "orders", sellerStatsPeriod = "all";
+  let sellers = [], sellerChartMetric = "orders", sellerStatsPeriod = "all", sellerAnalysisOpen = false;
   const isWeightProduct=p=>["Proteínas","Ensaladas"].includes(p.category);
   const kg=n=>Number(n).toLocaleString("es-CO",{maximumFractionDigits:2});
   const unitPrice=p=>Number(p.price)/(isWeightProduct(p)?Number(p.base_weight_kg||1):1);
@@ -480,6 +480,8 @@ async function submitOrder(e) {
     document.querySelectorAll("[data-assign-order]").forEach(b=>b.addEventListener("click",()=>{const orderId=b.getAttribute("data-assign-order");if(!orderId||orderId==="undefined"){notify("No se pudo identificar el pedido. Actualiza el panel e inténtalo de nuevo.",true);console.error("ID de pedido ausente en botón de asignación",b);return;}assignDelivery(orderId);}));
     document.querySelectorAll("[data-payment]").forEach(b=>b.addEventListener("click",()=>confirmPayment(b.dataset.id)));
     document.querySelectorAll("[data-edit-seller]").forEach(b=>b.addEventListener("click",()=>openSellerChange(b.dataset.editSeller)));
+    document.querySelectorAll("[data-pending-collection]").forEach(b=>b.addEventListener("click",()=>markPendingCollection(b.dataset.pendingCollection)));
+    document.querySelectorAll("[data-cancel-order]").forEach(b=>b.addEventListener("click",()=>cancelOrder(b.dataset.cancelOrder)));
   }
   function orderCard(o) {
     const items=(o.order_items||[]).map(i=>`${i.options?.sale_unit==="kg"?kg(i.quantity)+" kg":kg(i.quantity)+" ×"} ${esc(i.product_name)}${i.options&&Object.keys(i.options).length?`<br><small class="order-item-options">${esc(optionsSummary(i.options))}</small>`:""}`).join("<br>");
@@ -489,24 +491,25 @@ async function submitOrder(e) {
     if(admin) {
       actions=`<div class="order-actions">
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
-        <button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>
+        ${o.status!=="Cancelado"?`<button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>`:""}
          <button class="btn btn-outline btn-small" data-edit-seller="${o.id}">Cambiar vendedor</button>
         ${o.status!=="Cancelado"?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">${o.delivery_user_id?"Cambiar domiciliario / ruta":"Asignar domiciliario y ruta"}</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
+        ${!["Entregado","Cancelado"].includes(o.status)&&o.payment_status!=="Pagado"?`<button class="btn btn-small btn-danger" data-cancel-order="${o.id}">Cancelar pedido</button>`:""}
       </div>`;
     } else {
-      actions=`<div class="order-actions">${o.status==="Asignado"?`<button class="btn btn-primary btn-small" data-order-action="En camino" data-id="${o.id}">Iniciar entrega</button>`:""}${o.status==="En camino"?`<button class="btn btn-primary btn-small" data-order-action="Entregado" data-id="${o.id}">Marcar entregado</button>`:""}</div>`;
+      actions=`<div class="order-actions">${o.status==="Asignado"?`<button class="btn btn-primary btn-small" data-order-action="En camino" data-id="${o.id}">Iniciar entrega</button>`:""}${o.status==="En camino"?`<button class="btn btn-primary btn-small" data-order-action="Entregado" data-id="${o.id}">Marcar entregado</button>`:""}${["Asignado","En camino","Entregado"].includes(o.status)&&o.payment_status!=="Pagado"&&!o.collection_pending?`<button class="btn btn-small collection-due-button" data-pending-collection="${o.id}">Entregado · pendiente por cobrar</button>`:""}</div>`;
     }
-    const paymentDetail=o.payment_status==="Pagado"?`Pagado · ${esc(o.confirmed_payment_method||"Medio por clasificar")}`:"Pendiente de recaudo";
+    const paymentDetail=o.payment_status==="Pagado"?`Pagado · ${esc(o.confirmed_payment_method||"Medio por clasificar")}`:o.collection_pending?"Pendiente por cobrar · Transferencia":"Pendiente de recaudo";
     const routeLabel=o.delivery_route||"Sin ruta";
     const routeStyle=o.delivery_route==="Mañana"?"morning":o.delivery_route==="Tarde"?"afternoon":o.delivery_route==="Extra"?"extra":"unassigned";
     const routeSymbol=o.delivery_route==="Mañana"?"☀":o.delivery_route==="Tarde"?"◕":o.delivery_route==="Extra"?"✦":"◌";
-    return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span><span class="order-route-badge route-${routeStyle}">${routeSymbol} ${esc(routeLabel)}</span></div><strong>${money(o.total)}</strong></div>
+    return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span><span class="order-route-badge route-${routeStyle}">${routeSymbol} ${esc(routeLabel)}</span>${o.collection_pending&&o.payment_status!=="Pagado"?'<span class="order-collection-badge">Por cobrar</span>':""}</div><strong>${money(o.total)}</strong></div>
       <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · Vendedor: ${esc(o.seller||"Hangari")}</span></div></div>
       ${deliveryName?`<div class="assigned-delivery"><span class="assigned-delivery-icon">♧</span><div><small>DOMICILIARIO ASIGNADO</small><strong>${esc(deliveryName)}</strong></div></div>`:""}
       <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>
-      ${o.notes?`<div class="order-customer-notes"><small>OBSERVACIONES DEL PEDIDO</small><p>${esc(o.notes)}</p></div>`:""}${actions}</article>`;
+      ${o.notes?`<div class="order-customer-notes"><small>OBSERVACIONES DEL PEDIDO</small><p>${esc(o.notes)}</p></div>`:""}${o.status==="Cancelado"?`<div class="order-cancel-note"><strong>Pedido cancelado</strong>${o.cancellation_reason?`<p>${esc(o.cancellation_reason)}</p>`:""}</div>`:""}${actions}</article>`;
   }
   function dateInBogota(value){if(!value)return "";return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));}
   function localToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
@@ -739,8 +742,62 @@ async function submitOrder(e) {
     const {error}=await db.from("orders").update({status}).eq("id",id);
     if(error){notify(error.message,true);return;} notify("Estado del pedido actualizado.");await loadOrders();
   }
+
+  async function markPendingCollection(id) {
+    if(!db||profile?.role!=="delivery")return;
+    const order=orders.find(x=>String(x.id)===String(id));
+    if(!order||order.payment_status==="Pagado"||order.status==="Cancelado")return;
+    const modal=document.createElement("div");
+    modal.className="modal-backdrop";
+    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true" aria-label="Entrega pendiente de cobro">'+
+      '<button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button>'+
+      '<p class="eyebrow">Entrega a crédito</p><h2>¿Entregado y pendiente por cobrar?</h2>'+
+      '<p class="collection-modal-copy">Pedido <strong>'+esc(order.order_number)+'</strong> · '+money(order.total)+
+      '. El cliente recibirá el producto y pagará después por <strong>transferencia</strong>. No se registrará como dinero recaudado hasta que el administrador confirme el pago.</p>'+
+      '<div class="order-actions"><button type="button" class="btn btn-outline" data-dismiss>Volver</button>'+
+      '<button type="button" class="btn btn-primary" data-confirm-credit>Confirmar entrega por cobrar</button></div></section>';
+    document.body.appendChild(modal);
+    const close=()=>modal.remove();
+    modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close")||e.target.closest("[data-dismiss]"))close();});
+    modal.querySelector("[data-confirm-credit]").addEventListener("click",async e=>{
+      const button=e.currentTarget;button.disabled=true;button.textContent="Registrando...";
+      const {error}=await db.rpc("delivery_mark_pending_collection",{p_order_id:id});
+      if(error){notify(error.message,true);button.disabled=false;button.textContent="Confirmar entrega por cobrar";return;}
+      close();notify("Entrega registrada. El cobro por transferencia sigue pendiente.");
+      await loadOrders();
+    });
+  }
+  async function cancelOrder(id) {
+    if(!db||profile?.role!=="admin")return;
+    const order=orders.find(x=>String(x.id)===String(id));
+    if(!order||["Entregado","Cancelado"].includes(order.status)||order.payment_status==="Pagado"){
+      notify("No se puede cancelar automáticamente este pedido; revisa pagos y entregas.",true);return;
+    }
+    const modal=document.createElement("div");modal.className="modal-backdrop";
+    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true" aria-label="Cancelar pedido">'+
+      '<button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button>'+
+      '<p class="eyebrow">Gestión de pedidos</p><h2>Cancelar pedido</h2>'+
+      '<p class="collection-modal-copy">¿Confirmas cancelar el pedido <strong>'+esc(order.order_number)+'</strong>? Quedará en el historial como cancelado, dejará de contar como venta y se liberará el inventario reservado, cuando corresponda.</p>'+
+      '<form class="form-grid"><label class="span-2">Motivo de cancelación (opcional)<textarea name="reason" maxlength="350" rows="3" placeholder="Ej. Cliente desistió del pedido"></textarea></label>'+
+      '<button type="button" class="btn btn-outline" data-dismiss>No cancelar</button>'+
+      '<button type="submit" class="btn btn-danger">Sí, cancelar pedido</button></form></section>';
+    document.body.appendChild(modal);
+    const close=()=>modal.remove();
+    modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close")||e.target.closest("[data-dismiss]"))close();});
+    modal.querySelector("form").addEventListener("submit",async e=>{
+      e.preventDefault();const button=e.currentTarget.querySelector('[type="submit"]');
+      const reason=String(new FormData(e.currentTarget).get("reason")||"").trim();
+      button.disabled=true;button.textContent="Cancelando...";
+      const {error}=await db.rpc("admin_cancel_order",{p_order_id:id,p_reason:reason||null});
+      if(error){notify(error.message,true);button.disabled=false;button.textContent="Sí, cancelar pedido";return;}
+      close();notify("Pedido cancelado. Se conservó el historial.");
+      await loadOrders();if(profile?.role==="admin")await loadInventory();
+    });
+  }
+
   async function confirmPayment(id) {
     const order=orders.find(o=>String(o.id)===String(id));if(!order)return;
+    if(order.status==="Cancelado"){notify("No se pueden registrar pagos en pedidos cancelados.",true);return;}
     const modal=document.createElement("div");modal.className="modal-backdrop payment-backdrop";
     modal.innerHTML=`<section class="modal payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
       <button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Control de recaudo</p>
@@ -748,7 +805,7 @@ async function submitOrder(e) {
       <p class="muted">Pedido ${esc(order.order_number)} · Total ${money(order.total)}</p>
       <form class="form-grid"><label class="span-2">¿Por cuál medio recibiste el dinero?
         <select name="confirmed_payment_method" required><option value="">Selecciona el medio confirmado</option>
-        <option value="Transferencia" ${order.confirmed_payment_method==="Transferencia"?"selected":""}>Transferencia</option>
+        <option value="Transferencia" ${order.confirmed_payment_method==="Transferencia"||(!order.confirmed_payment_method&&order.collection_pending)?"selected":""}>Transferencia</option>
         <option value="Efectivo" ${order.confirmed_payment_method==="Efectivo"?"selected":""}>Efectivo</option>
         <option value="Datáfono" ${order.confirmed_payment_method==="Datáfono"?"selected":""}>Datáfono</option>
         <option value="Otro" ${order.confirmed_payment_method==="Otro"?"selected":""}>Otro</option></select></label>
