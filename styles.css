@@ -545,3 +545,14 @@ body.success-open{overflow:hidden}
   .seller-sales-details{padding:13px}
   .seller-sales-detail-grid{gap:20px}
 }
+
+
+/* Observaciones opcionales del pedido (compra y operaciones) */
+.form-grid textarea{width:100%;min-height:108px;padding:13px 14px;border:1px solid var(--sand);background:#fff;border-radius:12px;color:var(--ink);font:14px/1.55 "DM Sans",system-ui,sans-serif;outline:none;resize:vertical;transition:border-color .2s,box-shadow .2s}
+.form-grid textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(196,157,78,.2)}
+.form-grid textarea::placeholder{color:#9b9081}
+.checkout-notes-label{display:flex;flex-direction:column;gap:7px}
+.checkout-notes-help{font-size:11px;color:var(--muted);font-weight:400}
+.order-customer-notes{margin-top:13px;padding:14px 16px;border:1px solid #dfc99f;border-left:4px solid #c49d4e;background:linear-gradient(120deg,#fffaf0,#fffdf9);border-radius:12px}
+.order-customer-notes small{display:block;font-size:11px;letter-spacing:.5px;font-weight:700;color:#89642e}
+.order-customer-notes p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink);font-size:13px;line-height:1.6}
