@@ -15,7 +15,7 @@
   const PRODUCT_IMG_BASE = "img/productos/";
   const PRODUCT_IMG_PLACEHOLDER = PRODUCT_IMG_BASE + "_placeholder.svg";
 
-  let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos";
+  let products = [], cart = [], currentUser = null, profile = null, orders = [], orderFilter = "Todos", orderRouteFilter = "Todas";
   let statsPeriod = "all", inventoryItems = [], inventoryMovements = [], selectedInventoryCategory = "Proteínas", staffRealtimeChannel = null;
   let sellers = [], sellerChartMetric = "orders", sellerStatsPeriod = "all";
   const isWeightProduct=p=>["Proteínas","Ensaladas"].includes(p.category);
@@ -428,6 +428,7 @@ async function submitOrder(e) {
     $("#staff-role-label").textContent=prof.role==="admin"?"Administrador":"Domiciliario";
     $("#dashboard-title").textContent=prof.role==="admin"?"Gestión de pedidos":"Mis entregas";
     $("#orders-tabs").classList.toggle("hidden",prof.role!=="admin");
+    orderRouteFilter="Todas";
     $("#team-management").classList.toggle("hidden",prof.role!=="admin");
     $("#admin-navigation").classList.toggle("hidden",prof.role!=="admin");
     $("#orders-view").classList.remove("hidden");$("#statistics-view").classList.add("hidden");$("#inventory-view").classList.add("hidden");$("#sellers-view").classList.add("hidden");
@@ -447,7 +448,7 @@ async function submitOrder(e) {
     if(staffRealtimeChannel&&db){db.removeChannel(staffRealtimeChannel);staffRealtimeChannel=null;}
     $("#staff-app").classList.add("hidden");$("#storefront").classList.remove("hidden");
     $(".site-header").classList.remove("hidden");$(".site-footer").classList.remove("hidden");
-    currentUser=null;profile=null;orders=[];orderFilter="Todos";loadSellers();
+    currentUser=null;profile=null;orders=[];orderFilter="Todos";orderRouteFilter="Todas";loadSellers();
   }
   async function loadOrders() {
     if(!db||!profile)return;
@@ -464,7 +465,16 @@ async function submitOrder(e) {
     const delivered=orders.filter(o=>o.status==="Entregado").length;
     $("#stats-grid").innerHTML=`<div class="stat-card"><small>${profile.role==="admin"?"Pedidos pendientes":"Pedidos por gestionar"}</small><strong>${profile.role==="admin"?pending:active}</strong></div><div class="stat-card"><small>En proceso</small><strong>${orders.filter(o=>["Confirmado","En preparación","Asignado","En camino"].includes(o.status)).length}</strong></div><div class="stat-card"><small>Entregados</small><strong>${delivered}</strong></div>`;
     if(profile.role==="admin"&&!$("#statistics-view").classList.contains("hidden"))renderStatistics();
-    const shown=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
+    const statusPool=orderFilter==="Todos"?orders:orders.filter(o=>o.status===orderFilter);
+    const shown=statusPool.filter(o=>orderRouteFilter==="Todas"||(orderRouteFilter==="Sin ruta"?!o.delivery_route:o.delivery_route===orderRouteFilter));
+    const routeCounts={Todas:statusPool.length,Mañana:0,Tarde:0,Extra:0,"Sin ruta":0};
+    statusPool.forEach(o=>{const route=o.delivery_route||"Sin ruta";if(Object.prototype.hasOwnProperty.call(routeCounts,route))routeCounts[route]++;});
+    document.querySelectorAll("[data-route-count]").forEach(node=>{node.textContent=String(routeCounts[node.dataset.routeCount]||0);});
+    document.querySelectorAll("[data-route-filter]").forEach(button=>{
+      const active=button.dataset.routeFilter===orderRouteFilter;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-pressed",String(active));
+    });
     $("#orders-list").innerHTML=shown.length?shown.map(orderCard).join(""):'<div class="empty-panel"><span>✧</span><h3>No hay pedidos en esta vista</h3><p>Cuando se registren pedidos, aparecerán aquí.</p></div>';
     document.querySelectorAll("[data-order-action]").forEach(b=>b.addEventListener("click",()=>updateOrder(b.dataset.id,b.dataset.orderAction)));
     document.querySelectorAll("[data-assign-order]").forEach(b=>b.addEventListener("click",()=>{const orderId=b.getAttribute("data-assign-order");if(!orderId||orderId==="undefined"){notify("No se pudo identificar el pedido. Actualiza el panel e inténtalo de nuevo.",true);console.error("ID de pedido ausente en botón de asignación",b);return;}assignDelivery(orderId);}));
@@ -481,7 +491,7 @@ async function submitOrder(e) {
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
         <button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>
          <button class="btn btn-outline btn-small" data-edit-seller="${o.id}">Cambiar vendedor</button>
-        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">Asignar domiciliario</button>`:""}
+        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">${o.delivery_user_id?"Cambiar domiciliario / ruta":"Asignar domiciliario y ruta"}</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
       </div>`;
@@ -489,7 +499,10 @@ async function submitOrder(e) {
       actions=`<div class="order-actions">${o.status==="Asignado"?`<button class="btn btn-primary btn-small" data-order-action="En camino" data-id="${o.id}">Iniciar entrega</button>`:""}${o.status==="En camino"?`<button class="btn btn-primary btn-small" data-order-action="Entregado" data-id="${o.id}">Marcar entregado</button>`:""}</div>`;
     }
     const paymentDetail=o.payment_status==="Pagado"?`Pagado · ${esc(o.confirmed_payment_method||"Medio por clasificar")}`:"Pendiente de recaudo";
-    return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span></div><strong>${money(o.total)}</strong></div>
+    const routeLabel=o.delivery_route||"Sin ruta";
+    const routeStyle=o.delivery_route==="Mañana"?"morning":o.delivery_route==="Tarde"?"afternoon":o.delivery_route==="Extra"?"extra":"unassigned";
+    const routeSymbol=o.delivery_route==="Mañana"?"☀":o.delivery_route==="Tarde"?"◕":o.delivery_route==="Extra"?"✦":"◌";
+    return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span><span class="order-route-badge route-${routeStyle}">${routeSymbol} ${esc(routeLabel)}</span></div><strong>${money(o.total)}</strong></div>
       <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · Vendedor: ${esc(o.seller||"Hangari")}</span></div></div>
       ${deliveryName?`<div class="assigned-delivery"><span class="assigned-delivery-icon">♧</span><div><small>DOMICILIARIO ASIGNADO</small><strong>${esc(deliveryName)}</strong></div></div>`:""}
       <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>
@@ -751,20 +764,53 @@ async function submitOrder(e) {
     });
   }
   async function assignDelivery(id) {
+    if(!db||profile?.role!=="admin")return;
+    const order=orders.find(o=>o.id===id);
+    if(!order){notify("No se encontró el pedido. Actualiza la lista.",true);return;}
+    if(["Entregado","Cancelado"].includes(order.status)){notify("No se puede modificar la asignación de este pedido.",true);return;}
     const {data,error}=await db.from("profiles").select("id,full_name").eq("role","delivery").order("full_name");
     if(error||!data?.length){notify("No hay domiciliarios registrados. Crea primero un perfil en Gestión del equipo.",true);return;}
+    const routes=["Mañana","Tarde","Extra"];
     const modal=document.createElement("div");
     modal.className="modal-backdrop";
-    modal.innerHTML='<section class="modal team-modal" role="dialog" aria-modal="true"><button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button><p class="eyebrow">Logística Hangari</p><h2>Asignar domiciliario</h2><form class="form-grid"><label class="span-2">Selecciona el responsable<select name="delivery_id" required><option value="">Elige un domiciliario</option>'+data.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("")+'</select></label><button class="btn btn-primary btn-full span-2" type="submit">Asignar pedido</button></form></section>';
+    const people=data.map(person=>
+      '<option value="'+esc(person.id)+'"'+(person.id===order.delivery_user_id?' selected':'')+'>'+esc(person.full_name)+'</option>'
+    ).join("");
+    const routeOptions=routes.map(route=>
+      '<option value="'+route+'"'+(route===order.delivery_route?' selected':'')+'>'+
+      (route==="Mañana"?"☀ Ruta mañana":route==="Tarde"?"◕ Ruta tarde":"✦ Ruta extra")+'</option>'
+    ).join("");
+    modal.innerHTML='<section class="modal team-modal route-assign-modal" role="dialog" aria-modal="true" aria-label="Asignar domiciliario y ruta">'+
+      '<button class="icon-button modal-close" type="button" aria-label="Cerrar">×</button>'+
+      '<p class="eyebrow">Logística Hangari</p><h2>'+(order.delivery_user_id?"Actualizar asignación":"Asignar domiciliario")+'</h2>'+
+      '<p class="route-assign-caption">Pedido '+esc(order.order_number)+' · Elige un responsable y su jornada de reparto.</p>'+
+      '<form class="form-grid">'+
+      '<label class="span-2">Domiciliario responsable<select name="delivery_id" required><option value="">Elige un domiciliario</option>'+people+'</select></label>'+
+      '<label class="span-2">Ruta de entrega<select name="delivery_route" required><option value="">Selecciona la ruta</option>'+routeOptions+'</select></label>'+
+      '<p class="tiny-note span-2">La ruta se mostrará en el panel del domiciliario y permitirá filtrar los pedidos por Mañana, Tarde o Extra.</p>'+
+      '<button class="btn btn-primary btn-full span-2" type="submit">Guardar asignación y ruta</button></form></section>';
     document.body.appendChild(modal);
     const close=()=>modal.remove();
     modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest(".modal-close"))close();});
     modal.querySelector("form").addEventListener("submit",async e=>{
-      e.preventDefault();const person=data.find(x=>x.id===new FormData(e.currentTarget).get("delivery_id"));if(!person)return;
-      const submit=e.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;submit.textContent="Asignando…";
-      const {error:upError}=await db.from("orders").update({delivery_user_id:person.id,status:"Asignado"}).eq("id",id);
-      if(upError){notify(upError.message,true);submit.disabled=false;submit.textContent="Asignar pedido";return;}
-      close();notify("Pedido asignado a "+person.full_name+".");await loadOrders();
+      e.preventDefault();
+      const form=e.currentTarget,values=Object.fromEntries(new FormData(form).entries());
+      const person=data.find(x=>x.id===values.delivery_id);
+      if(!person||!routes.includes(values.delivery_route)){
+        notify("Selecciona un domiciliario y una ruta válida.",true);return;
+      }
+      const submit=form.querySelector('button[type="submit"]');
+      submit.disabled=true;submit.textContent="Guardando asignación...";
+      const nextStatus=order.status==="En camino"?"En camino":"Asignado";
+      const {data:updated,error:upError}=await db.from("orders")
+        .update({delivery_user_id:person.id,delivery_route:values.delivery_route,status:nextStatus})
+        .eq("id",id).select("id,delivery_route");
+      if(upError||!updated?.length){
+        notify(upError?.message||"No fue posible asignar la ruta. Verifica los permisos.",true);
+        submit.disabled=false;submit.textContent="Guardar asignación y ruta";return;
+      }
+      close();notify("Pedido asignado a "+person.full_name+" · Ruta "+values.delivery_route+".");
+      await loadOrders();
     });
   }
 
@@ -824,6 +870,14 @@ async function submitOrder(e) {
   $("#seller-period").addEventListener("change",e=>{sellerStatsPeriod=e.target.value;renderSellerAnalytics();});
   $("#sellers-analytics").addEventListener("click",e=>{const b=e.target.closest("[data-seller-metric]");if(b){sellerChartMetric=b.dataset.sellerMetric;renderSellerAnalytics();}});
 
+  $("#route-filter-buttons").addEventListener("click",e=>{
+    const b=e.target.closest("[data-route-filter]");
+    if(!b)return;
+    const allowed=["Todas","Mañana","Tarde","Extra","Sin ruta"];
+    if(!allowed.includes(b.dataset.routeFilter))return;
+    orderRouteFilter=b.dataset.routeFilter;
+    renderDashboard();
+  });
   $("#orders-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(!b)return;orderFilter=b.dataset.filter;document.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));renderDashboard();});
   $("#admin-navigation").addEventListener("click",e=>{const b=e.target.closest("[data-staff-view]");if(!b||profile?.role!=="admin")return;const view=b.dataset.staffView;$("#orders-view").classList.toggle("hidden",view!=="orders");$("#statistics-view").classList.toggle("hidden",view!=="statistics");$("#inventory-view").classList.toggle("hidden",view!=="inventory");$("#sellers-view").classList.toggle("hidden",view!=="sellers");document.querySelectorAll("[data-staff-view]").forEach(x=>x.classList.toggle("active",x===b));$("#dashboard-title").textContent=view==="statistics"?"Estadísticas y ventas":view==="inventory"?"Control de inventario":view==="sellers"?"Gestión de vendedores":"Gestión de pedidos";$("#refresh-orders").classList.toggle("hidden",view!=="orders");if(view==="statistics")renderStatistics();if(view==="inventory")loadInventory();if(view==="sellers"){loadSellers();renderSellerAnalytics();}});
   $("#stats-period").addEventListener("change",e=>{statsPeriod=e.target.value;$("#stats-custom-dates").classList.toggle("hidden",statsPeriod!=="custom");renderStatistics();});
