@@ -378,6 +378,7 @@ async function submitOrder(e) {
       p_delivery_date: form.delivery_date,
       p_seller: form.seller || null,
       p_payment_method: form.payment_method,
+      p_notes: (form.notes || "").trim(),
       p_items: items
     });
 
@@ -491,7 +492,8 @@ async function submitOrder(e) {
     return `<article class="order-card"><div class="order-top"><div><span class="order-code">${esc(o.order_number)}</span><span class="status status-${slug(o.status)}">${esc(o.status)}</span></div><strong>${money(o.total)}</strong></div>
       <div class="order-details"><div><small>CLIENTE</small><strong>${esc(o.customer_name)}</strong><span>${esc(o.phone)}</span></div><div><small>ENTREGA</small><strong>${formatDate(o.delivery_date)}</strong><span>${esc(o.address)}</span></div><div><small>PAGO</small><strong>${paymentDetail}</strong><span>Cliente indicó: ${esc(o.payment_method)} · Vendedor: ${esc(o.seller||"Hangari")}</span></div></div>
       ${deliveryName?`<div class="assigned-delivery"><span class="assigned-delivery-icon">♧</span><div><small>DOMICILIARIO ASIGNADO</small><strong>${esc(deliveryName)}</strong></div></div>`:""}
-      <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>${actions}</article>`;
+      <div class="order-products"><small>PRODUCTOS</small><p>${items||"Sin detalle"}</p></div>
+      ${o.notes?`<div class="order-customer-notes"><small>OBSERVACIONES DEL PEDIDO</small><p>${esc(o.notes)}</p></div>`:""}${actions}</article>`;
   }
   function dateInBogota(value){if(!value)return "";return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));}
   function localToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Bogota",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
