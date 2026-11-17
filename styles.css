@@ -593,3 +593,53 @@ body.success-open{overflow:hidden}
  .order-top .order-code{flex-basis:100%;margin-right:0}
  .order-route-badge{font-size:10px}
 }
+
+
+/* Gestión de recaudo a crédito, cancelaciones y conciliación comercial */
+.collection-due-button{border:1px solid #d8b46c;background:linear-gradient(135deg,#fff0c4,#edcf91);color:#62471e;box-shadow:0 3px 11px rgba(158,118,48,.13)}
+.collection-due-button:hover{background:linear-gradient(135deg,#e8ce92,#dcb673)}
+.order-collection-badge{display:inline-flex;align-items:center;padding:5px 10px;border:1px solid #e8bc62;border-radius:99px;background:#fff1d3;color:#8a5d23;font-size:11px;font-weight:800;white-space:nowrap}
+.collection-modal-copy{margin:12px 0 22px;line-height:1.7;color:var(--muted);font-size:13px}
+.collection-modal-copy strong{color:var(--mocha)}
+.order-cancel-note{border-radius:12px;border:1px solid #e9d6d1;padding:12px 16px;margin:12px 0 0;background:#fdf4f2;color:#8a5148}
+.order-cancel-note strong{display:block;font-size:12px}
+.order-cancel-note p{margin:6px 0 0;font-size:12px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap}
+.seller-kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.seller-kpi{padding:19px 16px}
+.seller-kpi-due{border-color:#e5c68c;background:linear-gradient(125deg,#fffdf7,#fff1d8)}
+.seller-kpi-due strong{color:#8b602e}
+.seller-analysis-link{margin-top:auto;width:max-content;max-width:100%;border:0;background:transparent;color:#8a622c;font-size:11px;font-weight:800;text-align:left;text-decoration:underline;text-underline-offset:3px;padding:0;cursor:pointer}
+.seller-cash-analysis{background:#fff;border:1px solid #e8dcc5;border-radius:19px;margin:0 0 20px;box-shadow:var(--shadow-sm);overflow:hidden}
+.seller-cash-analysis[open]{border-color:#d7bd8f}
+.seller-cash-analysis>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:15px;cursor:pointer;padding:19px 22px;background:linear-gradient(120deg,#fffdf8,#f5ebd6)}
+.seller-cash-analysis>summary::-webkit-details-marker{display:none}
+.seller-analysis-head{display:flex;flex-direction:column;gap:3px}
+.seller-analysis-head strong{font:600 21px var(--serif);color:var(--mocha)}
+.seller-analysis-head small{color:var(--muted);font-size:11px}
+.seller-analysis-chevron{font-size:25px;color:var(--gold-deep);transition:transform .2s}
+.seller-cash-analysis[open] .seller-analysis-chevron{transform:rotate(180deg)}
+.seller-cash-inner{padding:20px 22px 24px}
+.seller-analysis-note{font-size:12px;line-height:1.6;color:var(--muted);margin:0 0 16px}
+.seller-cash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.seller-cash-tile{padding:17px 14px;border-radius:15px;border:1px solid #e4dfd5;background:#faf8f4;display:flex;flex-direction:column;gap:9px;min-width:0}
+.seller-cash-tile small{font-size:11px;color:var(--muted);font-weight:650;line-height:1.35}
+.seller-cash-tile strong{font:600 clamp(17px,2vw,24px) var(--serif);color:var(--mocha);overflow-wrap:anywhere}
+.seller-cash-tile.cash{background:#f8f0df;border-color:#e8d9b8}
+.seller-cash-tile.bank{background:#eef4ff;border-color:#dce6f9}
+.seller-cash-tile.due{background:#fff4dc;border-color:#eed7a5}
+.seller-cash-tile.waiting{background:#f7f4f0;border-color:#e7e0d8}
+.seller-money-ledger{border:1px solid #e8e0d5;border-radius:12px;overflow:hidden;margin-bottom:20px}
+.seller-money-ledger>div{display:flex;justify-content:space-between;gap:16px;padding:10px 15px;border-bottom:1px solid #eee7df;font-size:12px;color:var(--muted)}
+.seller-money-ledger>div:last-child{border-bottom:0;background:#faf6ec;color:var(--mocha);font-weight:750}
+.seller-money-ledger b{color:var(--mocha);white-space:nowrap}
+.seller-cash-inner h4{font:600 18px var(--serif);margin:18px 0 10px}
+.seller-money-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.seller-money-table{width:100%;min-width:660px;border-collapse:collapse;font-size:12px}
+.seller-money-table th{text-align:right;color:#695d4e;background:#f9f2e7;padding:11px 10px;white-space:nowrap}
+.seller-money-table td{border-top:1px solid #eee5d7;padding:11px 10px;text-align:right;white-space:nowrap}
+.seller-money-table th:first-child,.seller-money-table td:first-child{text-align:left;white-space:normal}
+.seller-money-breakdown{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 17px}
+.seller-money-breakdown span{border-radius:10px;background:#f8f2e6;border:1px solid #e7ddc9;padding:8px 11px;font-size:11px;color:var(--muted)}
+.seller-money-breakdown strong{color:var(--mocha);white-space:nowrap}
+@media(max-width:1150px){.seller-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.seller-cash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.seller-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.seller-cash-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.seller-cash-tile{padding:12px 10px}.seller-cash-tile strong{font-size:17px}.seller-cash-analysis>summary{padding:15px 13px}.seller-cash-inner{padding:15px 12px}.seller-money-ledger>div{padding:10px}.seller-money-ledger>div span{min-width:0}.seller-cash-inner h4{font-size:17px}}
