@@ -491,7 +491,7 @@ async function submitOrder(e) {
         ${o.status==="Pendiente"?`<button class="btn btn-primary btn-small" data-order-action="Confirmado" data-id="${o.id}">Confirmar pedido</button>`:""}
         <button class="btn btn-outline btn-small" data-payment="yes" data-id="${o.id}">${o.payment_status==="Pagado"?"Editar pago recibido":"Registrar pago recibido"}</button>
          <button class="btn btn-outline btn-small" data-edit-seller="${o.id}">Cambiar vendedor</button>
-        ${!["Entregado","Cancelado"].includes(o.status)?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">${o.delivery_user_id?"Cambiar domiciliario / ruta":"Asignar domiciliario y ruta"}</button>`:""}
+        ${o.status!=="Cancelado"?`<button class="btn btn-outline btn-small" data-assign-order="${o.id}">${o.delivery_user_id?"Cambiar domiciliario / ruta":"Asignar domiciliario y ruta"}</button>`:""}
         ${o.status==="Confirmado"?`<button class="btn btn-outline btn-small" data-order-action="En preparación" data-id="${o.id}">En preparación</button>`:""}
         ${o.status==="En preparación"?`<button class="btn btn-outline btn-small" data-order-action="Asignado" data-id="${o.id}">Marcar asignado</button>`:""}
       </div>`;
@@ -767,7 +767,7 @@ async function submitOrder(e) {
     if(!db||profile?.role!=="admin")return;
     const order=orders.find(o=>o.id===id);
     if(!order){notify("No se encontró el pedido. Actualiza la lista.",true);return;}
-    if(["Entregado","Cancelado"].includes(order.status)){notify("No se puede modificar la asignación de este pedido.",true);return;}
+    if(order.status==="Cancelado"){notify("No se puede modificar la asignación de un pedido cancelado.",true);return;}
     const {data,error}=await db.from("profiles").select("id,full_name").eq("role","delivery").order("full_name");
     if(error||!data?.length){notify("No hay domiciliarios registrados. Crea primero un perfil en Gestión del equipo.",true);return;}
     const routes=["Mañana","Tarde","Extra"];
@@ -801,7 +801,7 @@ async function submitOrder(e) {
       }
       const submit=form.querySelector('button[type="submit"]');
       submit.disabled=true;submit.textContent="Guardando asignación...";
-      const nextStatus=order.status==="En camino"?"En camino":"Asignado";
+      const nextStatus=["En camino","Entregado"].includes(order.status)?order.status:"Asignado";
       const {data:updated,error:upError}=await db.from("orders")
         .update({delivery_user_id:person.id,delivery_route:values.delivery_route,status:nextStatus})
         .eq("id",id).select("id,delivery_route");
