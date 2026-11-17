@@ -11,7 +11,7 @@
   const music = document.getElementById("hangari-welcome-audio");
   if (!overlay || !closeButton || !enterButton || !silentButton || !musicButton || !music) return;
 
-  // Para cada carga de página, un punto independiente entre 00:00 y 05:00.
+  // Para cada carga de página, un punto independiente entre 00:00 y 10:00.
   // Si la grabación es más corta, se limita para no comenzar en su final.
   const randomFraction = Math.random();
   let startSelected = false;
@@ -28,7 +28,7 @@
     if (!startSelected || seekApplied || music.readyState < 1) return;
     const duration = music.duration;
     if (!Number.isFinite(duration) || duration <= 0) return;
-    const latestSecond = Math.max(0, Math.min(300, Math.floor(duration - 2)));
+    const latestSecond = Math.max(0, Math.min(600, Math.floor(duration - 2)));
     const second = Math.floor(randomFraction * (latestSecond + 1));
     try {
       music.currentTime = second;
