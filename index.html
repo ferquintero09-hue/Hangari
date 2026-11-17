@@ -149,6 +149,16 @@
         <div class="team-list-heading"><strong>Domiciliarios registrados</strong><button class="btn btn-outline btn-small" type="button" id="refresh-team">Actualizar lista</button></div>
         <div id="delivery-team-list" class="delivery-team-list"><p class="empty-state">Cargando equipo…</p></div>
       </section>
+      <section class="route-filters" aria-label="Filtrar pedidos por ruta">
+        <div class="route-filters-heading"><div><span class="route-filters-eyebrow">Organización de entregas</span><h2>Ver rutas</h2></div><p>Consulta los pedidos por jornada de reparto.</p></div>
+        <div class="route-filter-buttons" id="route-filter-buttons" role="group" aria-label="Seleccionar ruta">
+          <button type="button" class="route-filter-btn active" data-route-filter="Todas" aria-pressed="true"><span aria-hidden="true">▦</span> Todas <span class="route-filter-count" data-route-count="Todas">0</span></button>
+          <button type="button" class="route-filter-btn" data-route-filter="Mañana" aria-pressed="false"><span aria-hidden="true">☀</span> Mañana <span class="route-filter-count" data-route-count="Mañana">0</span></button>
+          <button type="button" class="route-filter-btn" data-route-filter="Tarde" aria-pressed="false"><span aria-hidden="true">◕</span> Tarde <span class="route-filter-count" data-route-count="Tarde">0</span></button>
+          <button type="button" class="route-filter-btn" data-route-filter="Extra" aria-pressed="false"><span aria-hidden="true">✦</span> Extra <span class="route-filter-count" data-route-count="Extra">0</span></button>
+          <button type="button" class="route-filter-btn" data-route-filter="Sin ruta" aria-pressed="false"><span aria-hidden="true">◌</span> Sin ruta <span class="route-filter-count" data-route-count="Sin ruta">0</span></button>
+        </div>
+      </section>
       <div class="orders-toolbar"><div id="orders-tabs" class="category-tabs"><button class="category-tab active" data-filter="Todos">Todos</button><button class="category-tab" data-filter="Pendiente">Pendientes</button><button class="category-tab" data-filter="Confirmado">Confirmados</button><button class="category-tab" data-filter="En preparación">En preparación</button><button class="category-tab" data-filter="Asignado">Asignados</button><button class="category-tab" data-filter="En camino">En camino</button><button class="category-tab" data-filter="Entregado">Entregados</button></div></div>
       <div id="orders-list" class="orders-list"><div class="loading">Cargando pedidos…</div></div>
       </section>
