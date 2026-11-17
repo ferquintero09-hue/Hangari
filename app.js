@@ -539,13 +539,13 @@ async function submitOrder(e) {
     const range=getSellerRange();
     const rows=sellers.map(x=>({
       name:x.name,active:x.active,is_system:x.is_system,
-      count:0,sales:0,collected:0,pending:0,products:{},orders:[]
+      count:0,sales:0,collected:0,pending:0,due:0,cash:0,bank:0,other:0,unclassified:0,products:{},orders:[]
     }));
     const byName=new Map(rows.map(x=>[x.name.toLocaleLowerCase("es-CO"),x]));
     const ensure=(name)=>{
       const normalized=String(name||"Hangari").trim()||"Hangari",key=normalized.toLocaleLowerCase("es-CO");
       if(!byName.has(key)){
-        const item={name:normalized,active:false,is_system:false,historical:true,count:0,sales:0,collected:0,pending:0,products:{},orders:[]};
+        const item={name:normalized,active:false,is_system:false,historical:true,count:0,sales:0,collected:0,pending:0,due:0,cash:0,bank:0,other:0,unclassified:0,products:{},orders:[]};
         byName.set(key,item);rows.push(item);
       }
       return byName.get(key);
@@ -558,8 +558,17 @@ async function submitOrder(e) {
       const amount=Number(o.total||0);
       entry.count+=1;
       entry.sales+=amount;
-      if(o.payment_status==="Pagado")entry.collected+=amount;
-      else entry.pending+=amount;
+      if(o.payment_status==="Pagado"){
+        entry.collected+=amount;
+        const method=o.confirmed_payment_method;
+        if(method==="Efectivo")entry.cash+=amount;
+        else if(["Transferencia","Datáfono"].includes(method))entry.bank+=amount;
+        else if(method==="Otro")entry.other+=amount;
+        else entry.unclassified+=amount;
+      }else{
+        entry.pending+=amount;
+        if(o.collection_pending)entry.due+=amount;
+      }
       entry.orders.push(o);
       (o.order_items||[]).forEach(item=>{
         const name=item.product_name||"Producto",unit=item.options?.sale_unit==="kg"?"kg":"uds.";
@@ -574,6 +583,13 @@ async function submitOrder(e) {
     const totalOrders=rows.reduce((n,x)=>n+x.count,0);
     const totalSales=rows.reduce((n,x)=>n+x.sales,0);
     const totalCollected=rows.reduce((n,x)=>n+x.collected,0);
+    const totalDue=rows.reduce((n,x)=>n+x.due,0);
+    const totalCash=rows.reduce((n,x)=>n+x.cash,0);
+    const totalBank=rows.reduce((n,x)=>n+x.bank,0);
+    const totalOther=rows.reduce((n,x)=>n+x.other,0);
+    const totalUnclassified=rows.reduce((n,x)=>n+x.unclassified,0);
+    const totalPending=rows.reduce((n,x)=>n+x.pending,0);
+    const totalWaiting=Math.max(0,totalPending-totalDue);
     const countActive=rows.filter(x=>x.active&&!x.is_system).length;
     const metrics={
       orders:{label:"Pedidos",value:x=>x.count,format:n=>kg(n),short:n=>String(n)},
@@ -605,23 +621,35 @@ async function submitOrder(e) {
         '<div class="seller-product-row"><div><strong>'+esc(p.name)+'</strong><small>'+kg(p.quantity)+' '+esc(p.unit)+'</small></div><b>'+money(p.amount)+'</b></div>').join(""):
         '<p class="empty-state compact">Todavía no hay productos vendidos por este vendedor.</p>';
       const orderHtml=x.orders.length?x.orders.map(o=>
-        '<div class="seller-order-row"><div><strong>'+esc(o.order_number)+'</strong><small>'+esc(dateInBogota(o.created_at))+' · '+esc(o.customer_name)+'</small></div><span class="'+(o.payment_status==="Pagado"?"seller-paid":"seller-pending")+'">'+esc(o.payment_status||"Pendiente")+'</span><b>'+money(o.total)+'</b></div>').join(""):
+        '<div class="seller-order-row"><div><strong>'+esc(o.order_number)+'</strong><small>'+esc(dateInBogota(o.created_at))+' · '+esc(o.customer_name)+'</small></div><span class="'+(o.payment_status==="Pagado"?"seller-paid":"seller-pending")+'">'+esc(o.payment_status==="Pagado"?"Pagado":o.collection_pending?"Por cobrar · transferencia":"Pendiente")+'</span><b>'+money(o.total)+'</b></div>').join(""):
         '<p class="empty-state compact">Sin pedidos en este periodo.</p>';
       return '<details class="seller-sales-card"><summary><div class="seller-sales-name"><span class="seller-sales-avatar">'+esc(x.name.charAt(0).toUpperCase())+'</span><div><strong>'+esc(x.name)+'</strong><small>'+(x.is_system?'Venta directa · Hangari':x.active?'Vendedor activo':x.historical?'Vendedor histórico':'Vendedor inactivo')+'</small></div></div><div class="seller-sales-mini"><span><b>'+x.count+'</b> pedidos</span><span><b>'+money(x.sales)+'</b> vendidos</span><span><b>'+money(x.collected)+'</b> recaudados</span></div><span class="seller-sales-arrow">⌄</span></summary>'+
-        '<div class="seller-sales-details"><div class="seller-sales-detail-head"><span>Pendiente de recaudo: <strong>'+money(x.pending)+'</strong></span><span>'+goods.length+' referencias vendidas</span></div>'+
+        '<div class="seller-sales-details"><div class="seller-sales-detail-head"><span>Por cobrar después de entrega: <strong>'+money(x.due)+'</strong></span><span>Pendientes de pago en total: <strong>'+money(x.pending)+'</strong></span><span>'+goods.length+' referencias vendidas</span></div>'+
+        '<div class="seller-money-breakdown"><span>Efectivo confirmado <strong>'+money(x.cash)+'</strong></span><span>En cuentas (transferencia / datáfono) <strong>'+money(x.bank)+'</strong></span></div>'+
         '<div class="seller-sales-detail-grid"><section><h4>Productos vendidos</h4>'+goodsHtml+'</section><section><h4>Pedidos atribuidos</h4>'+orderHtml+'</section></div></div></details>';
     }).join("");
     target.innerHTML=
       '<div class="seller-kpi-grid">'+
       '<article class="seller-kpi seller-kpi-primary"><span>Pedidos registrados</span><strong>'+totalOrders+'</strong><small>Excluye cancelados</small></article>'+
-      '<article class="seller-kpi"><span>Ventas registradas</span><strong>'+money(totalSales)+'</strong><small>Valor de los pedidos</small></article>'+
+      '<article class="seller-kpi"><span>Ventas registradas</span><strong>'+money(totalSales)+'</strong><button type="button" class="seller-analysis-link" data-seller-analysis>Ver análisis de dinero ↗</button></article>'+
       '<article class="seller-kpi"><span>Recaudo confirmado</span><strong>'+money(totalCollected)+'</strong><small>Solo pagos recibidos</small></article>'+
+      '<article class="seller-kpi seller-kpi-due"><span>Por cobrar (entregados)</span><strong>'+money(totalDue)+'</strong><small>Compromisos de transferencia</small></article>'+
       '<article class="seller-kpi"><span>Vendedores activos</span><strong>'+countActive+'</strong><small>Sin contar Hangari</small></article></div>'+
+      '<details id="seller-cash-analysis" class="seller-cash-analysis"'+(sellerAnalysisOpen?' open':'')+'><summary><span class="seller-analysis-head"><strong>¿Dónde está el dinero?</strong><small>Ver análisis por efectivo, cuentas bancarias y cuentas por cobrar</small></span><span class="seller-analysis-chevron">⌄</span></summary>'+
+      '<div class="seller-cash-inner"><p class="seller-analysis-note">Cifras de pedidos no cancelados del periodo elegido. Efectivo y cuentas bancarias incluyen únicamente pagos confirmados. Transferencias y datáfono se agrupan como cuentas bancarias; otros pagos se muestran aparte.</p>'+
+      '<div class="seller-cash-grid">'+
+      '<div class="seller-cash-tile cash"><small>Efectivo confirmado</small><strong>'+money(totalCash)+'</strong></div>'+
+      '<div class="seller-cash-tile bank"><small>Cuentas bancarias (transferencia / datáfono)</small><strong>'+money(totalBank)+'</strong></div>'+
+      '<div class="seller-cash-tile due"><small>Por cobrar después de entrega</small><strong>'+money(totalDue)+'</strong></div>'+
+      '<div class="seller-cash-tile waiting"><small>Pendiente de pago (sin entregar a crédito)</small><strong>'+money(totalWaiting)+'</strong></div>'+
+      '</div>'+
+      '<div class="seller-money-ledger"><div><span>Otros medios confirmados</span><b>'+money(totalOther)+'</b></div><div><span>Pagos confirmados sin medio clasificado</span><b>'+money(totalUnclassified)+'</b></div><div><span>Total efectivamente recaudado</span><b>'+money(totalCollected)+'</b></div></div>'+
+      '<h4>Distribución por vendedor</h4><div class="seller-money-table-wrap"><table class="seller-money-table"><thead><tr><th>Vendedor</th><th>Efectivo</th><th>Cuentas bancarias</th><th>Por cobrar</th><th>Recaudado</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+money(x.cash)+'</td><td>'+money(x.bank)+'</td><td>'+money(x.due)+'</td><td>'+money(x.collected)+'</td></tr>').join('')+'</tbody></table></div></div></details>'+
       '<section class="seller-chart-panel"><div class="seller-chart-heading"><div><h3>Rendimiento por vendedor</h3><p>Compara pedidos, ventas y recaudos reales.</p></div>'+
       '<div class="seller-chart-modes">'+Object.keys(metrics).map(key=>'<button class="'+(sellerChartMetric===key?'active':'')+'" type="button" data-seller-metric="'+key+'">'+esc(metrics[key].label)+'</button>').join("")+'</div></div>'+chart+'</section>'+
       '<div class="seller-results-heading"><div><h3>Detalle por vendedor</h3><p>Abre cada tarjeta para consultar productos, pedidos y recaudos.</p></div><strong>'+rows.length+' registros</strong></div>'+
       '<div class="seller-sales-list">'+cards+'</div>'+
-      '<p class="seller-stats-footnote">Las ventas corresponden a pedidos no cancelados del periodo seleccionado. El recaudo refleja únicamente los pedidos marcados como pagados, atribuidos al vendedor actual. La asignación comercial puede ser corregida por el administrador.</p>';
+      '<p class="seller-stats-footnote">Las ventas incluyen pedidos no cancelados creados en el periodo seleccionado. Por cobrar distingue entregas a crédito aún sin pagar. Los pagos confirmados se clasifican por su medio real registrado, no por la promesa de transferencia. La asignación comercial puede ser corregida por el administrador.</p>';
   }
 
   function renderStatistics(){
@@ -925,7 +953,18 @@ async function submitOrder(e) {
   $("#seller-admin-list").addEventListener("click",e=>{const b=e.target.closest("[data-seller-toggle]");if(b)toggleSeller(b.dataset.sellerToggle);});
   $("#seller-change-form").addEventListener("submit",changeOrderSeller);
   $("#seller-period").addEventListener("change",e=>{sellerStatsPeriod=e.target.value;renderSellerAnalytics();});
-  $("#sellers-analytics").addEventListener("click",e=>{const b=e.target.closest("[data-seller-metric]");if(b){sellerChartMetric=b.dataset.sellerMetric;renderSellerAnalytics();}});
+  $("#sellers-analytics").addEventListener("click",e=>{
+    const b=e.target.closest("[data-seller-metric]");
+    if(b){sellerChartMetric=b.dataset.sellerMetric;renderSellerAnalytics();return;}
+    const trigger=e.target.closest("[data-seller-analysis]");
+    if(trigger){
+      const panel=$("#seller-cash-analysis");
+      if(panel){panel.open=!panel.open;sellerAnalysisOpen=panel.open;if(panel.open)panel.scrollIntoView({behavior:"smooth",block:"start"});}
+    }
+  });
+  $("#sellers-analytics").addEventListener("toggle",e=>{
+    if(e.target.id==="seller-cash-analysis")sellerAnalysisOpen=e.target.open;
+  },true);
 
   $("#route-filter-buttons").addEventListener("click",e=>{
     const b=e.target.closest("[data-route-filter]");
