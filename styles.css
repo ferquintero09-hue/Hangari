@@ -556,3 +556,40 @@ body.success-open{overflow:hidden}
 .order-customer-notes{margin-top:13px;padding:14px 16px;border:1px solid #dfc99f;border-left:4px solid #c49d4e;background:linear-gradient(120deg,#fffaf0,#fffdf9);border-radius:12px}
 .order-customer-notes small{display:block;font-size:11px;letter-spacing:.5px;font-weight:700;color:#89642e}
 .order-customer-notes p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink);font-size:13px;line-height:1.6}
+
+
+/* HANGARI · Rutas de reparto: Mañana, Tarde y Extra */
+.route-filters{margin:25px 0 0;padding:19px 21px 20px;background:linear-gradient(125deg,#fffdf9 0%,#f6ebd5 100%);border:1px solid #e6d8c0;border-radius:18px;box-shadow:0 8px 24px rgba(76,53,27,.06)}
+.route-filters-heading{display:flex;gap:16px;align-items:end;justify-content:space-between;margin-bottom:14px}
+.route-filters-eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--gold-deep)}
+.route-filters-heading h2{font:600 23px var(--serif);margin:2px 0 0;color:var(--mocha)}
+.route-filters-heading p{font-size:12px;color:var(--muted);margin:0;text-align:right}
+.route-filter-buttons{display:flex;gap:9px;overflow-x:auto;padding:3px 1px 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.route-filter-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex:none;border:1px solid #e2d8c9;background:#fffdf9;color:#5d4e3e;border-radius:12px;min-height:43px;padding:9px 12px;font-size:12px;font-weight:700;transition:border-color .2s,background .2s,box-shadow .2s,transform .2s}
+.route-filter-btn>span:first-child{font-size:16px;font-weight:600;color:#a8813c}
+.route-filter-btn:hover{border-color:var(--gold);box-shadow:0 4px 12px rgba(88,63,28,.09);transform:translateY(-1px)}
+.route-filter-btn.active{background:var(--mocha);color:#fffdf6;border-color:var(--mocha);box-shadow:0 5px 15px rgba(47,36,21,.16)}
+.route-filter-btn.active>span:first-child{color:#e9ce8c}
+.route-filter-count{display:inline-grid;place-items:center;min-width:23px;height:23px;padding:0 6px;background:#f2eadb;color:#5a4730;border-radius:8px;font-size:11px;font-weight:800}
+.route-filter-btn.active .route-filter-count{background:#e8d3a2;color:#352817}
+.orders-toolbar .category-tabs{margin-top:20px}
+.order-top>div:first-child{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.order-top .order-code{margin-right:4px}
+.order-route-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-weight:750;font-size:11px;line-height:1.2;border:1px solid transparent;white-space:nowrap}
+.order-route-badge.route-morning{background:#fff1cc;border-color:#eed294;color:#866126}
+.order-route-badge.route-afternoon{background:#e6f0ff;border-color:#bbd3f6;color:#315b99}
+.order-route-badge.route-extra{background:#f4e5f5;border-color:#e4c5e7;color:#7f4b87}
+.order-route-badge.route-unassigned{background:#f1eee9;border-color:#e1dbd1;color:#73695d}
+.route-assign-caption{font-size:13px;color:var(--muted);line-height:1.5;margin:12px 0 22px}
+.route-assign-modal .form-grid select{min-height:47px}
+@media(max-width:650px){
+ .route-filters{margin-top:18px;padding:15px 12px 12px}
+ .route-filters-heading{align-items:flex-start;flex-direction:column;gap:4px}
+ .route-filters-heading h2{font-size:21px}
+ .route-filters-heading p{text-align:left}
+ .route-filter-buttons{gap:7px;margin-right:-8px;padding-right:8px}
+ .route-filter-btn{min-height:44px;padding:8px 10px;font-size:11px}
+ .order-top>div:first-child{align-items:flex-start}
+ .order-top .order-code{flex-basis:100%;margin-right:0}
+ .order-route-badge{font-size:10px}
+}
