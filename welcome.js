@@ -18,8 +18,9 @@
   let seekApplied = false;
   let dismissed = false;
   let playingRequested = false;
+  let pausedByVisibility = false;
 
-  music.volume = 0.7;
+  music.volume = 0.5;
   music.loop = true;
   music.preload = "metadata";
 
@@ -64,7 +65,7 @@
   }
 
   function playMusic() {
-    music.volume = 0.7;
+    music.volume = 0.5;
     // Mantener play() en el mismo evento de clic ayuda en Safari y Chrome móvil.
     useRandomStartingPoint();
     let result;
@@ -77,9 +78,20 @@
     }
     playingRequested = true;
     showMusicButton("playing");
+    if (document.hidden) {
+      music.pause();
+      pausedByVisibility = true;
+      showMusicButton("paused");
+    }
     if (result && typeof result.then === "function") {
       result.then(() => {
         useRandomStartingPoint();
+        if (document.hidden) {
+          music.pause();
+          pausedByVisibility = true;
+          showMusicButton("paused");
+          return;
+        }
         showMusicButton("playing");
       }).catch((error) => {
         playingRequested = false;
@@ -137,9 +149,30 @@
     } else {
       music.pause();
       playingRequested = false;
+      pausedByVisibility = false;
       showMusicButton("paused");
     }
   });
+  function pauseWhenHidden() {
+    if (!dismissed || music.paused) return;
+    pausedByVisibility = true;
+    music.pause();
+    showMusicButton("paused");
+  }
+  function resumeWhenVisible() {
+    if (!dismissed || !pausedByVisibility || document.hidden) return;
+    pausedByVisibility = false;
+    // Intentamos retomar en el mismo segundo, sin sortear otro inicio.
+    // Algunos navegadores pueden requerir un nuevo toque del usuario.
+    playMusic();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) pauseWhenHidden();
+    else resumeWhenVisible();
+  });
+  window.addEventListener("pagehide", pauseWhenHidden);
+  window.addEventListener("pageshow", resumeWhenVisible);
+
   music.addEventListener("ended", () => {
     if (!music.loop) showMusicButton("paused");
   });
