@@ -643,3 +643,115 @@ body.success-open{overflow:hidden}
 .seller-money-breakdown strong{color:var(--mocha);white-space:nowrap}
 @media(max-width:1150px){.seller-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.seller-cash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.seller-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.seller-cash-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.seller-cash-tile{padding:12px 10px}.seller-cash-tile strong{font-size:17px}.seller-cash-analysis>summary{padding:15px 13px}.seller-cash-inner{padding:15px 12px}.seller-money-ledger>div{padding:10px}.seller-money-ledger>div span{min-width:0}.seller-cash-inner h4{font-size:17px}}
+
+
+/* ===== Hangari · Bienvenida navideña interactiva ===== */
+body.hangari-welcome-open{overflow:hidden}
+.hangari-welcome{
+ position:fixed;inset:0;z-index:120;display:grid;place-items:center;
+ padding:16px;overflow-y:auto;overscroll-behavior:contain;
+ background:
+  radial-gradient(ellipse 42% 35% at 15% 12%,rgba(236,205,133,.38),transparent 90%),
+  radial-gradient(ellipse 38% 40% at 90% 83%,rgba(205,169,90,.30),transparent 86%),
+  linear-gradient(145deg,#fffefa 0%,#faf1e1 53%,#f1dfb8 100%);
+ opacity:0;transition:opacity .5s ease;
+ -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)
+}
+.hangari-welcome.is-visible{opacity:1}
+.hangari-welcome.is-closing{opacity:0;pointer-events:none}
+.hangari-welcome-glow{
+ position:fixed;pointer-events:none;width:min(54vw,500px);aspect-ratio:1;
+ border-radius:50%;filter:blur(3px);opacity:.6;
+ background:radial-gradient(circle,rgba(247,230,173,.72),rgba(245,229,185,.05) 65%,transparent 72%);
+ animation:hangari-welcome-float 8s ease-in-out infinite alternate
+}
+.hangari-welcome-glow-a{left:-18vw;top:-20vh}
+.hangari-welcome-glow-b{right:-22vw;bottom:-22vh;animation-delay:-3s}
+.hangari-welcome-card{
+ position:relative;isolation:isolate;display:flex;flex-direction:column;
+ align-items:center;gap:9px;width:min(94vw,665px);
+ margin:auto;padding:18px 24px 17px;
+ border-radius:26px;border:1px solid rgba(190,150,76,.35);
+ background:linear-gradient(160deg,rgba(255,255,255,.83),rgba(255,249,236,.78));
+ box-shadow:0 30px 95px rgba(80,59,27,.14),inset 0 2px 0 rgba(255,255,255,.86);
+ transform:translateY(24px) scale(.96);opacity:0;
+ transition:transform .72s cubic-bezier(.18,.85,.24,1),opacity .72s ease
+}
+.hangari-welcome.is-visible .hangari-welcome-card{transform:translateY(0) scale(1);opacity:1}
+.hangari-welcome-close{
+ position:absolute;z-index:3;top:10px;right:11px;
+ display:grid;place-items:center;width:43px;height:43px;
+ border:1px solid rgba(172,129,56,.5);border-radius:50%;
+ background:rgba(255,255,255,.95);color:#5a4020;
+ box-shadow:0 4px 18px rgba(48,31,15,.12);
+ font-family:Arial,sans-serif;font-size:30px;font-weight:300;line-height:1;
+ transition:background .2s,transform .2s
+}
+.hangari-welcome-close:hover{background:#f7e6be;transform:rotate(90deg)}
+.hangari-welcome-eyebrow{
+ color:#85612a;font-size:10px;letter-spacing:2.5px;font-weight:800;
+ display:flex;align-items:center;gap:12px;
+ padding:1px 45px;margin:4px 0 0;text-align:center
+}
+.hangari-welcome-eyebrow span{color:#c49d4e;font-size:14px;animation:hangari-twinkle 2.8s ease-in-out infinite}
+.hangari-welcome-eyebrow span:last-child{animation-delay:-1.4s}
+.hangari-welcome-image-wrap{
+ position:relative;width:min(59dvh,465px,84vw);
+ aspect-ratio:1;max-height:calc(100dvh - 199px);
+ display:grid;place-items:center;min-width:0;
+ filter:drop-shadow(0 18px 18px rgba(75,53,21,.14))
+}
+.hangari-welcome-image{
+ display:block;width:100%;height:100%;object-fit:contain;
+ border-radius:18px;box-shadow:0 9px 34px rgba(114,88,43,.1);
+ animation:hangari-image-reveal 1.2s ease .15s both
+}
+.hangari-welcome-actions{width:100%;display:flex;flex-direction:column;align-items:center;gap:7px}
+.hangari-welcome-enter{
+ min-height:46px;padding:11px 28px;
+ font-size:13px;box-shadow:0 10px 24px rgba(164,124,53,.2)
+}
+.hangari-welcome-silent{
+ border:0;background:none;color:#8b775a;
+ font-size:11px;font-weight:600;text-decoration:underline;text-underline-offset:3px;
+ padding:3px 10px
+}
+.hangari-welcome-silent:hover{color:#4a351e}
+.hangari-welcome-actions p{
+ margin:0;color:#92816a;font-size:10px;text-align:center;line-height:1.4
+}
+.hangari-music-toggle{
+ position:fixed;z-index:26;bottom:24px;left:22px;
+ display:inline-flex;align-items:center;gap:9px;
+ min-height:43px;padding:6px 15px 6px 7px;border-radius:999px;
+ background:rgba(255,253,247,.96);border:1px solid rgba(177,137,69,.55);
+ color:#49391f;box-shadow:0 8px 26px rgba(49,37,22,.19);
+ -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+ font-size:11px;font-weight:700;letter-spacing:.1px;
+ transition:transform .2s,box-shadow .2s
+}
+.hangari-music-toggle:hover{transform:translateY(-2px);box-shadow:0 11px 32px rgba(49,37,22,.23)}
+.hangari-music-disc{
+ width:29px;height:29px;border-radius:50%;display:grid;place-items:center;
+ color:#f8e2a1;background:#2e241a;font-size:19px;
+ box-shadow:0 0 0 2px rgba(196,157,78,.24)
+}
+.hangari-music-toggle.is-playing .hangari-music-disc{animation:hangari-music-glow 3s ease-in-out infinite}
+@keyframes hangari-welcome-float{from{transform:translateY(0) scale(.95)}to{transform:translateY(25px) scale(1.08)}}
+@keyframes hangari-image-reveal{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes hangari-twinkle{50%{opacity:.35;transform:scale(.85)}}
+@keyframes hangari-music-glow{50%{box-shadow:0 0 0 6px rgba(196,157,78,.17)}}
+@media(max-width:650px){
+ .hangari-welcome{padding:10px}
+ .hangari-welcome-card{width:100%;padding:15px 12px 16px;border-radius:22px;gap:9px}
+ .hangari-welcome-close{top:8px;right:8px;width:39px;height:39px}
+ .hangari-welcome-eyebrow{font-size:9px;letter-spacing:1.6px;gap:7px;margin-top:6px;padding:1px 43px}
+ .hangari-welcome-image-wrap{width:min(86vw,51dvh);max-height:calc(100dvh - 195px)}
+ .hangari-welcome-enter{width:min(85%,290px);padding:12px 20px}
+ .hangari-music-toggle{bottom:14px;left:12px;font-size:10px;padding-right:11px;min-height:42px}
+}
+@media(prefers-reduced-motion:reduce){
+ .hangari-welcome,.hangari-welcome-card{transition:none}
+ .hangari-welcome-glow,.hangari-welcome-image,.hangari-welcome-eyebrow span,
+ .hangari-music-toggle.is-playing .hangari-music-disc{animation:none}
+}
